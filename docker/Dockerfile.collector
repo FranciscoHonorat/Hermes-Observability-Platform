@@ -1,0 +1,23 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/collector/package*.json ./packages/collector/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY packages/collector ./packages/collector
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+
+# Build
+RUN npm run build --workspace=packages/collector
+
+EXPOSE 4317 4318
+
+CMD ["node", "packages/collector/dist/index.js"]

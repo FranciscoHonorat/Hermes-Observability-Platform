@@ -1,0 +1,129 @@
+services:
+  # PostgreSQL with TimescaleDB Extension
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: hermes-postgres
+    environment:
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes-network
+
+  # Redis for caching and streaming
+  redis:
+    image: redis:7-alpine
+    container_name: hermes-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes-network
+
+  # Hermes Collector (receives metrics) - Commented out until implemented
+  # collector:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.collector
+  #   container_name: hermes-collector
+  #   ports:
+  #     - "4317:4317"  # gRPC
+  #     - "4318:4318"  # HTTP
+  #   environment:
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     NODE_ENV: development
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - hermes-network
+
+  # Hermes Processor (processes metrics) - Commented out until implemented
+  # processor:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.processor
+  #   container_name: hermes-processor
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PORT: 5432
+  #     POSTGRES_DB: hermes_observability
+  #     POSTGRES_USER: hermes
+  #     POSTGRES_PASSWORD: hermes_dev_password
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     NODE_ENV: development
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - hermes-network
+
+  # Hermes API (serves data) - Commented out until implemented
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.api
+  #   container_name: hermes-api
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PORT: 5432
+  #     POSTGRES_DB: hermes_observability
+  #     POSTGRES_USER: hermes
+  #     POSTGRES_PASSWORD: hermes_dev_password
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     API_PORT: 3000
+  #     NODE_ENV: development
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - hermes-network
+
+  # Hermes UI (React dashboard) - Commented out until implemented
+  # ui:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.ui
+  #   container_name: hermes-ui
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     REACT_APP_API_URL: http://localhost:3000
+  #     NODE_ENV: development
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - hermes-network
+
+networks:
+  hermes-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
