@@ -8,6 +8,7 @@ export const collectMemoryMetrics = (): Metric[] => {
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
+    const memoryUsagePercent = (usedMemory / totalMemory) * 100;
 
     metrics.push({
         name: 'system.memory.total',
@@ -29,7 +30,7 @@ export const collectMemoryMetrics = (): Metric[] => {
         name: 'system.memory.usage',
         type: MetricType.GAUGE,
         value: Math.round(memoryUsagePercent * 100) / 100,
-        unit: MetricUnit.PERCENTAGE,
+        unit: MetricUnit.PERCENT,
         timestamp: Date.now()
     });
 

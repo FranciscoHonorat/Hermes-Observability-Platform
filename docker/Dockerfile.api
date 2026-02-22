@@ -15,7 +15,8 @@ COPY packages/api ./packages/api
 COPY packages/shared ./packages/shared
 COPY tsconfig.json ./
 
-# Build
+# Build shared first
+RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=packages/api
 
 EXPOSE 3000

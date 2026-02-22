@@ -36,89 +36,92 @@ services:
     networks:
       - hermes-network
 
-  # Hermes Collector (receives metrics) - Commented out until implemented
-  # collector:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.collector
-  #   container_name: hermes-collector
-  #   ports:
-  #     - "4317:4317"  # gRPC
-  #     - "4318:4318"  # HTTP
-  #   environment:
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     NODE_ENV: development
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - hermes-network
+  # Hermes Collector (receives metrics)
+  collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.collector
+    container_name: hermes-collector
+    ports:
+      - "4000:4000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      COLLECTOR_PORT: 4000
+      NODE_ENV: development
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
 
-  # Hermes Processor (processes metrics) - Commented out until implemented
-  # processor:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.processor
-  #   container_name: hermes-processor
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_DB: hermes_observability
-  #     POSTGRES_USER: hermes
-  #     POSTGRES_PASSWORD: hermes_dev_password
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     NODE_ENV: development
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - hermes-network
+  # Hermes Processor (processes metrics)
+  processor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.processor
+    container_name: hermes-processor
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
 
-  # Hermes API (serves data) - Commented out until implemented
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.api
-  #   container_name: hermes-api
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_DB: hermes_observability
-  #     POSTGRES_USER: hermes
-  #     POSTGRES_PASSWORD: hermes_dev_password
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     API_PORT: 3000
-  #     NODE_ENV: development
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - hermes-network
+  # Hermes API (serves data)
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: hermes-api
+    ports:
+      - "3000:3000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_PORT: 3000
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
 
-  # Hermes UI (React dashboard) - Commented out until implemented
-  # ui:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.ui
-  #   container_name: hermes-ui
-  #   ports:
-  #     - "3001:3001"
-  #   environment:
-  #     REACT_APP_API_URL: http://localhost:3000
-  #     NODE_ENV: development
-  #   depends_on:
-  #     - api
-  #   networks:
-  #     - hermes-network
+  # Hermes UI (React dashboard)
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui
+    container_name: hermes-ui
+    ports:
+      - "3001:80"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    depends_on:
+      - api
+    networks:
+      - hermes-network
+    restart: unless-stopped
 
 networks:
   hermes-network:

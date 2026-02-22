@@ -3,8 +3,8 @@ export const DEFAULT_FLUSH_INTERVAL = 5000; // 5 seconds
 export const DEFAULT_BATCH_SIZE = 100;
 export const DEFAULT_RETENTION_DAYS = 30;
 
-export const REDIS_STREAM_KEY = 'hermes:metrics:stream';
 export const REDIS_ALERTS_KEY = 'hermes:alerts:pending';
+export const REDIS_METRICS_STREAM = 'hermes:metrics:stream';
 
 export const METRIC_NAMES = {
   CPU_USAGE: 'system.cpu.usage',

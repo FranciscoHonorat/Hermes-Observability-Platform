@@ -21,13 +21,14 @@ CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics (metric_name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_metrics_labels ON metrics USING GIN (labels);
 
 -- Alerts configuration table
-CREATE TABLE IF NOT EXISTS alerts (
+CREATE TABLE IF NOT EXISTS alert_rules (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     metric_name VARCHAR(255) NOT NULL,
     condition VARCHAR(50) NOT NULL, -- gt, lt, eq (greater than, less than, equal)
     threshold DOUBLE PRECISION NOT NULL,
+    app_name VARCHAR(255),
     email_recipients TEXT[] NOT NULL,
     enabled BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -37,11 +38,12 @@ CREATE TABLE IF NOT EXISTS alerts (
 -- Alert history table
 CREATE TABLE IF NOT EXISTS alert_history (
     id SERIAL PRIMARY KEY,
-    alert_id INTEGER REFERENCES alerts(id),
+    alert_rule_id INTEGER REFERENCES alert_rules(id),
+    app_name VARCHAR(255) NOT NULL,
     triggered_at TIMESTAMPTZ NOT NULL,
     metric_value DOUBLE PRECISION NOT NULL,
     resolved_at TIMESTAMPTZ,
-    notification_sent BOOLEAN DEFAULT FALSE
+    notification_sent BOOLEAN DEFAULT TRUE
 );
 
 -- Application registry

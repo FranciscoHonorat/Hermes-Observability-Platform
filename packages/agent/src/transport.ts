@@ -24,8 +24,8 @@ export class MetricTransport {
 
             await this.client.post('/api/v1/metrics', batch);
 
-            logger.info(`Sucessfully sent ${batch.metrics.length} metrics to collector`);
-        } catch (error) {
+            logger.info(`Successfully sent ${batch.metrics.length} metrics to collector`);
+        } catch (error: any) {
         if (error.response) {
             logger.error(`Failed to send metrics: ${error.response.status} - ${error.response.data}`);
         } else if (error.request) {

@@ -15,7 +15,8 @@ COPY packages/processor ./packages/processor
 COPY packages/shared ./packages/shared
 COPY tsconfig.json ./
 
-# Build
+# Build shared first
+RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=packages/processor
 
 CMD ["node", "packages/processor/dist/index.js"]

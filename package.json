@@ -10,12 +10,18 @@
     "build:watch": "tsc --build --watch",
     "clean": "tsc --build --clean",
     "test": "npm run test --workspaces --if-present",
+    "test:system": "node scripts/test-system.js",
     "dev": "npm run dev --workspaces --if-present",
     "lint": "eslint packages/*/src/**/*.ts",
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,json}\"",
+    "docker": "node scripts/docker.js",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build",
+    "docker:rebuild": "docker-compose up -d --build",
+    "docker:status": "docker-compose ps",
+    "docker:clean": "docker-compose down --remove-orphans"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
@@ -30,5 +36,8 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
   }
 }

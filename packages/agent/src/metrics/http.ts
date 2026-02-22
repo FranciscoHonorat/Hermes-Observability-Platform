@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Metric, MetricType, MetricUnit } from '@hermes/shared';
 
-const htttpMetrics: Metric[] = [];
+const httpMetrics: Metric[] = [];
 
 export const httpMiddleware = () => {
     return (req: Request, res: Response, next: NextFunction) => {
@@ -13,7 +13,7 @@ export const httpMiddleware = () => {
             const statusCode = res.statusCode;
 
             //Métrica de duração da request
-            htttpMetrics.push({
+            httpMetrics.push({
                 name: 'http.request.duration',
                 type: MetricType.HISTOGRAM,
                 value: duration,
@@ -27,7 +27,7 @@ export const httpMiddleware = () => {
             });
 
             //Contador de requests
-            htttpMetrics.push({
+            httpMetrics.push({
                 name: 'http.request.total',
                 type: MetricType.COUNTER,
                 value: 1,
@@ -40,10 +40,10 @@ export const httpMiddleware = () => {
                 }
             });
 
-            //Contador de erros (stauts >= 400)
+            //Contador de erros (status >= 400)
             if (statusCode >= 400) {
-                htttpMetrics.push({
-                    name: 'http.request.total',
+                httpMetrics.push({
+                    name: 'http.request.errors',
                     type: MetricType.COUNTER,
                     value: 1,
                     unit: MetricUnit.COUNT,
@@ -63,6 +63,6 @@ export const httpMiddleware = () => {
 
 export const getHttpMetrics = (): Metric[] => {
     const metrics = [...httpMetrics];
-    htttpMetrics.length = 0; // Limpa as métricas após retorná-las
+    httpMetrics.length = 0; // Limpa as métricas após retorná-las
     return metrics;
 };

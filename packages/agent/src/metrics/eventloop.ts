@@ -22,12 +22,12 @@ export const collectEventLoopMetrics = (): Promise<Metric[]> => {
     });
 };
 
-export const collectUpTimeMetric = (): Metric[] => {
-    return {
+export const collectUptimeMetric = (): Metric[] => {
+    return [{
         name: 'process.uptime',
         type: MetricType.GAUGE,
         value: Math.floor(process.uptime()),
         unit: MetricUnit.SECONDS,
         timestamp: Date.now()
-    };
+    }];
 };
