@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+lib/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+packages/*/dist/
+packages/*/build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+.jest_cache/
+.vitest_cache/
+
+# Docker
+docker-compose.override.yml
+postgres_data/
+redis_data/
+hermes_postgres_data/
+hermes_redis_data/
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Package manager config
+.npmrc
+.yarnrc
+.pnpmrc
+
+# Monorepo tools
+.turbo/
+.next/
+
+# Runtime
+dist/
+lib/
+
+# VSCode settings (if local)
+.vscode/settings.json
+.vscode/launch.json

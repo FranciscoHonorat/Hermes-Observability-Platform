@@ -1,0 +1,51 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.override.yml
+Dockerfile*
+.dockerignore
+
+# Tests
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Temp
+tmp/
+temp/
+*.tmp

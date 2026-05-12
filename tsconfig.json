@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./packages",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@hermes/shared/*": ["packages/shared/src/*"],
+      "@hermes/agent/*": ["packages/agent/src/*"],
+      "@hermes/collector/*": ["packages/collector/src/*"],
+      "@hermes/processor/*": ["packages/processor/src/*"],
+      "@hermes/api/*": ["packages/api/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*"],
+  "exclude": ["node_modules", "dist", "packages/ui"],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/agent" },
+    { "path": "packages/collector" },
+    { "path": "packages/processor" },
+    { "path": "packages/api" }
+  ]
+}

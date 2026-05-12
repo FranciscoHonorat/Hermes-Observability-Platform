@@ -1,0 +1,22 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/processor/package*.json ./packages/processor/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY packages/processor ./packages/processor
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+
+# Build shared first
+RUN npm run build --workspace=packages/shared
+RUN npm run build --workspace=packages/processor
+
+CMD ["node", "packages/processor/dist/index.js"]
