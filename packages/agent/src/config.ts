@@ -2,7 +2,7 @@ import { AgentConfig } from '@hermes/shared';
 
 export const loadConfig = (): AgentConfig => {
     const config: AgentConfig = {
-        collectorUrl: process.env.HERMES_COLLECTOR_URL || 'http://localhost:4000/collect',
+        collectorUrl: process.env.HERMES_COLLECTOR_URL || 'http://localhost:4000',
         collectInterval: parseInt(process.env.HERMES_COLLECT_INTERVAL || '10000', 10),
         serviceName: process.env.HERMES_SERVICE_NAME || 'unknown-service',
         environment: process.env.HERMES_ENVIRONMENT || 'development',

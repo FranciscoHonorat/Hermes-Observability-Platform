@@ -25,5 +25,12 @@
     }
   },
   "include": ["packages/*/src/**/*"],
-  "exclude": ["node_modules", "dist", "packages/ui"]
+  "exclude": ["node_modules", "dist", "packages/ui"],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/agent" },
+    { "path": "packages/collector" },
+    { "path": "packages/processor" },
+    { "path": "packages/api" }
+  ]
 }

@@ -6,27 +6,16 @@
  */
 
 const express = require('express');
-const { HermesAgent } = require('@hermes/agent');
+const { createAgent, increment, gauge, histogram } = require('@hermes/agent');
 
 // =============================================================================
 // 1. INITIALIZE HERMES AGENT
 // =============================================================================
 
-const agent = HermesAgent.init({
-  appName: 'demo-ecommerce',
-  collectorUrl: 'http://localhost:4000/metrics',
-  labels: {
-    environment: 'development',
-    service: 'api',
-    version: '1.0.0',
-    datacenter: 'us-east-1'
-  },
-  flushInterval: 5000  // Send metrics every 5 seconds
-});
+const agent = createAgent();
 
 console.log('✅ Hermes Agent initialized');
-console.log('📊 Sending metrics to: http://localhost:4000/metrics');
-console.log('🏷️  App Name: demo-ecommerce');
+console.log('📊 Sending metrics to collector...');
 
 // =============================================================================
 // 2. CREATE EXPRESS APPLICATION
@@ -52,29 +41,29 @@ app.use((req, res, next) => {
   const start = Date.now();
   
   // Increment request counter
-  agent.counter('http_requests_total', {
+  increment('http_requests_total', 1, {
     method: req.method,
     path: req.path
-  }).inc();
+  });
   
   // When response finishes, record metrics
   res.on('finish', () => {
     const duration = Date.now() - start;
     
     // Record request duration (histogram)
-    agent.histogram('http_request_duration_ms', {
+    histogram('http_request_duration_ms', duration, undefined, {
       method: req.method,
       path: req.path,
       status: res.statusCode.toString()
-    }).observe(duration);
+    });
     
     // Count errors (4xx, 5xx)
     if (res.statusCode >= 400) {
-      agent.counter('http_errors_total', {
+      increment('http_errors_total', 1, {
         method: req.method,
         path: req.path,
         status: res.statusCode.toString()
-      }).inc();
+      });
     }
   });
   
@@ -100,7 +89,7 @@ app.get('/api/products', (req, res) => {
   const delay = Math.random() * 150 + 50;
   
   setTimeout(() => {
-    agent.counter('products_listed_total').inc();
+    increment('products_listed_total', 1);
     res.json(products);
   }, delay);
 });
@@ -110,7 +99,7 @@ app.post('/api/users', (req, res) => {
   const { name, email } = req.body;
   
   if (!name || !email) {
-    agent.counter('user_creation_failed_total', { reason: 'validation_error' }).inc();
+    increment('user_creation_failed_total', 1, { reason: 'validation_error' });
     return res.status(400).json({ error: 'Name and email are required' });
   }
   
@@ -124,8 +113,8 @@ app.post('/api/users', (req, res) => {
   users.push(user);
   
   // Business metrics
-  agent.counter('users_created_total').inc();
-  agent.gauge('total_users', { status: 'active' }).set(users.length);
+  increment('users_created_total', 1);
+  gauge('total_users', users.length, undefined, { status: 'active' });
   
   res.status(201).json(user);
 });
@@ -136,13 +125,13 @@ app.post('/api/orders', (req, res) => {
   
   // Validations
   if (!userId || !productId) {
-    agent.counter('order_creation_failed_total', { reason: 'validation_error' }).inc();
+    increment('order_creation_failed_total', 1, { reason: 'validation_error' });
     return res.status(400).json({ error: 'userId and productId are required' });
   }
   
   const product = products.find(p => p.id === parseInt(productId));
   if (!product) {
-    agent.counter('order_creation_failed_total', { reason: 'product_not_found' }).inc();
+    increment('order_creation_failed_total', 1, { reason: 'product_not_found' });
     return res.status(404).json({ error: 'Product not found' });
   }
   
@@ -160,39 +149,37 @@ app.post('/api/orders', (req, res) => {
   orders.push(order);
   
   // Detailed business metrics
-  agent.counter('orders_created_total', {
+  increment('orders_created_total', 1, {
     product: product.name,
     value_range: totalValue > 500 ? 'high' : 'low'
-  }).inc();
+  });
   
-  agent.gauge('order_value_usd', {
+  gauge('order_value_usd', totalValue, undefined, {
     product: product.name
-  }).set(totalValue);
+  });
   
-  agent.histogram('order_quantity', {
+  histogram('order_quantity', quantity, undefined, {
     product: product.name
-  }).observe(quantity);
+  });
   
-  agent.gauge('total_orders').set(orders.length);
+  gauge('total_orders', orders.length);
   
   // Total GMV (Gross Merchandise Value)
   const gmv = orders.reduce((sum, o) => sum + o.totalValue, 0);
-  agent.gauge('total_gmv_usd').set(gmv);
+  gauge('total_gmv_usd', gmv);
   
   res.status(201).json(order);
 });
 
 // Simulate 500 error
 app.get('/api/error', (req, res) => {
-  agent.counter('forced_errors_total', { type: '500' }).inc();
-  
-  // Simulate server error
-  throw new Error('Simulated server error');
+  increment('forced_errors_total', 1, { type: '500' });
+  res.status(500).json({ error: 'Simulated server error' });
 });
 
 // Endpoint with high latency (simulates heavy operation)
 app.get('/api/slow', async (req, res) => {
-  agent.counter('slow_endpoint_calls_total').inc();
+  increment('slow_endpoint_calls_total', 1);
   
   const start = Date.now();
   
@@ -201,7 +188,7 @@ app.get('/api/slow', async (req, res) => {
   await new Promise(resolve => setTimeout(resolve, delay));
   
   const duration = Date.now() - start;
-  agent.histogram('slow_operation_duration_ms').observe(duration);
+  histogram('slow_operation_duration_ms', duration);
   
   res.json({ 
     message: 'Slow operation completed',
@@ -222,10 +209,10 @@ app.get('/api/stats', (req, res) => {
   };
   
   // Update gauges with statistics
-  agent.gauge('stats_users').set(stats.total_users);
-  agent.gauge('stats_orders').set(stats.total_orders);
-  agent.gauge('stats_gmv').set(stats.total_gmv);
-  agent.gauge('stats_avg_order_value').set(stats.avg_order_value);
+  gauge('stats_users', stats.total_users);
+  gauge('stats_orders', stats.total_orders);
+  gauge('stats_gmv', stats.total_gmv);
+  gauge('stats_avg_order_value', stats.avg_order_value);
   
   res.json(stats);
 });
@@ -234,9 +221,9 @@ app.get('/api/stats', (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
   
-  agent.counter('unhandled_errors_total', {
+  increment('unhandled_errors_total', 1, {
     path: req.path
-  }).inc();
+  });
   
   res.status(500).json({ 
     error: 'Internal Server Error',
@@ -271,17 +258,17 @@ function startTrafficSimulator() {
       cumulative += endpoint.weight;
       if (random <= cumulative) {
         // Simulate metric for this endpoint
-        agent.counter('simulated_traffic', {
+        increment('simulated_traffic', 1, {
           method: endpoint.method,
           path: endpoint.path
-        }).inc();
+        });
         break;
       }
     }
     
     // Update gauge with random number of active users
     const activeUsers = Math.floor(Math.random() * 200) + 50;
-    agent.gauge('active_users_count').set(activeUsers);
+    gauge('active_users_count', activeUsers);
     
   }, 2000); // Every 2 seconds
 }
@@ -308,9 +295,9 @@ app.post('/api/simulator/stop', (req, res) => {
 // 6. START SERVER
 // =============================================================================
 
-const PORT = process.env.PORT || 3030;
+const PORT = process.env.PORT || 3333;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log('');
   console.log('='.repeat(80));
   console.log('🚀 Hermes Demo App is running!');
