@@ -1,0 +1,132 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Banco TimescaleDB (Subido como Private Service para ter a extensão)
+  # -------------------------------------------------------------
+  - type: pserv
+    name: hermes-postgres
+    env: docker
+    image:
+      url: timescale/timescaledb:latest-pg15
+    plan: starter # Planos com disco precisam ser no mínimo Starter no Render
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 10
+    envVars:
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        generateValue: true # Gera uma senha segura automaticamente no Render
+
+  # -------------------------------------------------------------
+  # 2. Redis (Cache/Streaming)
+  # -------------------------------------------------------------
+  - type: pserv
+    name: hermes-redis
+    env: docker
+    image:
+      url: redis:7-alpine
+    plan: free
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
+
+  # -------------------------------------------------------------
+  # 3. Hermes Collector (Web Service Público)
+  # -------------------------------------------------------------
+  - type: web
+    name: hermes-collector
+    env: docker
+    dockerfilePath: docker/Dockerfile.collector
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: REDIS_HOST
+        value: hermes-redis
+      - key: REDIS_PORT
+        value: 6379
+      - key: COLLECTOR_PORT
+        value: 4000
+      - key: NODE_ENV
+        value: production
+
+  # -------------------------------------------------------------
+  # 4. Hermes Processor (Worker de Background)
+  # -------------------------------------------------------------
+  - type: worker
+    name: hermes-processor
+    env: docker
+    dockerfilePath: docker/Dockerfile.processor
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        value: hermes-postgres
+      - key: POSTGRES_PORT
+        value: 5432
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: pserv
+          name: hermes-postgres
+          property: envVar:POSTGRES_PASSWORD
+      - key: REDIS_HOST
+        value: hermes-redis
+      - key: REDIS_PORT
+        value: 6379
+      - key: NODE_ENV
+        value: production
+
+  # -------------------------------------------------------------
+  # 5. Hermes API (Web Service Público)
+  # -------------------------------------------------------------
+  - type: web
+    name: hermes-api
+    env: docker
+    dockerfilePath: docker/Dockerfile.api
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        value: hermes-postgres
+      - key: POSTGRES_PORT
+        value: 5432
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: pserv
+          name: hermes-postgres
+          property: envVar:POSTGRES_PASSWORD
+      - key: REDIS_HOST
+        value: hermes-redis
+      - key: REDIS_PORT
+        value: 6379
+      - key: API_PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+
+  # -------------------------------------------------------------
+  # 6. Hermes UI (React Dashboard - Web Service Público)
+  # -------------------------------------------------------------
+  - type: web
+    name: hermes-ui
+    env: docker
+    dockerfilePath: docker/Dockerfile.ui
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: hermes-api
+          property: url
