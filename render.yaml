@@ -1,13 +1,13 @@
 services:
   # -------------------------------------------------------------
-  # 1. Banco TimescaleDB (Subido como Private Service para ter a extensão)
+  # 1. Banco TimescaleDB
   # -------------------------------------------------------------
   - type: pserv
     name: hermes-postgres
     env: docker
     image:
       url: timescale/timescaledb:latest-pg15
-    plan: starter # Planos com disco precisam ser no mínimo Starter no Render
+    plan: starter # Mantido starter por conta do uso de Persistent Disk
     disk:
       name: postgres-data
       mountPath: /var/lib/postgresql/data
@@ -18,7 +18,7 @@ services:
       - key: POSTGRES_USER
         value: hermes
       - key: POSTGRES_PASSWORD
-        generateValue: true # Gera uma senha segura automaticamente no Render
+        value: hermes_dev_password # Para referenciar facilmente, definimos o valor explicitamente
 
   # -------------------------------------------------------------
   # 2. Redis (Cache/Streaming)
@@ -28,14 +28,10 @@ services:
     env: docker
     image:
       url: redis:7-alpine
-    plan: free
-    disk:
-      name: redis-data
-      mountPath: /data
-      sizeGB: 1
+    plan: free # Removido o bloco de disk para ser compatível com o plano free
 
   # -------------------------------------------------------------
-  # 3. Hermes Collector (Web Service Público)
+  # 3. Hermes Collector
   # -------------------------------------------------------------
   - type: web
     name: hermes-collector
@@ -47,14 +43,14 @@ services:
       - key: REDIS_HOST
         value: hermes-redis
       - key: REDIS_PORT
-        value: 6379
+        value: "6379"
       - key: COLLECTOR_PORT
-        value: 4000
+        value: "4000"
       - key: NODE_ENV
         value: production
 
   # -------------------------------------------------------------
-  # 4. Hermes Processor (Worker de Background)
+  # 4. Hermes Processor
   # -------------------------------------------------------------
   - type: worker
     name: hermes-processor
@@ -66,25 +62,22 @@ services:
       - key: POSTGRES_HOST
         value: hermes-postgres
       - key: POSTGRES_PORT
-        value: 5432
+        value: "5432"
       - key: POSTGRES_DB
         value: hermes_observability
       - key: POSTGRES_USER
         value: hermes
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: hermes-postgres
-          property: envVar:POSTGRES_PASSWORD
+        value: hermes_dev_password
       - key: REDIS_HOST
         value: hermes-redis
       - key: REDIS_PORT
-        value: 6379
+        value: "6379"
       - key: NODE_ENV
         value: production
 
   # -------------------------------------------------------------
-  # 5. Hermes API (Web Service Público)
+  # 5. Hermes API
   # -------------------------------------------------------------
   - type: web
     name: hermes-api
@@ -96,27 +89,24 @@ services:
       - key: POSTGRES_HOST
         value: hermes-postgres
       - key: POSTGRES_PORT
-        value: 5432
+        value: "5432"
       - key: POSTGRES_DB
         value: hermes_observability
       - key: POSTGRES_USER
         value: hermes
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: hermes-postgres
-          property: envVar:POSTGRES_PASSWORD
+        value: hermes_dev_password
       - key: REDIS_HOST
         value: hermes-redis
       - key: REDIS_PORT
-        value: 6379
+        value: "6379"
       - key: API_PORT
-        value: 3000
+        value: "3000"
       - key: NODE_ENV
         value: production
 
   # -------------------------------------------------------------
-  # 6. Hermes UI (React Dashboard - Web Service Público)
+  # 6. Hermes UI (React Dashboard)
   # -------------------------------------------------------------
   - type: web
     name: hermes-ui
@@ -126,7 +116,4 @@ services:
     plan: free
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: hermes-api
-          property: url
+        value: https://hermes-api.onrender.com # Substitua pela URL final que o Render gerar para a sua API
