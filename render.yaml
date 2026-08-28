@@ -1,5 +1,5 @@
 services:
-  # -------------------------------------------------------------
+# -------------------------------------------------------------
   # 1. Banco TimescaleDB
   # -------------------------------------------------------------
   - type: pserv
@@ -7,7 +7,7 @@ services:
     env: docker
     image:
       url: timescale/timescaledb:latest-pg15
-    plan: starter # Mantido starter por conta do uso de Persistent Disk
+    plan: starter
     disk:
       name: postgres-data
       mountPath: /var/lib/postgresql/data
@@ -18,8 +18,8 @@ services:
       - key: POSTGRES_USER
         value: hermes
       - key: POSTGRES_PASSWORD
-        value: hermes_dev_password # Para referenciar facilmente, definimos o valor explicitamente
-
+        value: hermes_dev_password
+        
   # -------------------------------------------------------------
   # 2. Redis (Cache/Streaming)
   # -------------------------------------------------------------
