@@ -16,7 +16,7 @@ export class MetricsCollector {
 
     constructor(config?: Partial<ReturnType<typeof loadConfig>>) {
         this.config = { ...loadConfig(), ...config };
-        this.transport = new MetricTransport(this.config.collectorUrl);
+        this.transport = new MetricTransport(this.config.collectorUrl, this.config.apiKey);
         
         logger.info('Hermes Agent initialized', {
             service: this.config.serviceName,

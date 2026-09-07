@@ -7,7 +7,7 @@ Complete observability system for Node.js applications, focusing on metrics, das
 - **[🚀 Quick Start](#-getting-started)** - Get started in 5 minutes with Docker
 - **[📖 API Documentation](API.md)** - Complete REST API reference
 - **[🎯 Demo Application](examples/demo-app/)** - Practical SDK usage example
-- **[🐋 Docker Guide](DOCKER.md)** - Complete Docker guide (400+ lines)
+- **[🐋 Docker Guide](DOCKER.md)** - Services, volumes, auth, and troubleshooting
 - **[⚡ Troubleshooting](#-troubleshooting)** - Common problems & solutions
 
 ## 🎯 MVP Scope
@@ -543,7 +543,7 @@ docker-compose logs
 ### 📖 User Guides
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick installation guide (Docker + Manual)
 - **[API.md](API.md)** - Complete REST API reference with examples
-- **[DOCKER.md](DOCKER.md)** - Complete Docker guide (400+ lines)
+- **[DOCKER.md](DOCKER.md)** - Complete Docker guide
 
 ### 🎯 Examples
 - **[Demo Application](examples/demo-app/)** - E-commerce instrumented with Hermes SDK
@@ -554,6 +554,7 @@ docker-compose logs
 ### 📝 Technical Docs
 - **[MVP.md](docs/MVP.md)** - MVP scope and decisions
 - **[BUILD_STATUS.md](BUILD_STATUS.md)** - Build status and fixes
+- **[LOAD_TESTING.md](docs/LOAD_TESTING.md)** - Throughput/latency test roadmap and how to reproduce the numbers before they go in this README
 - **API Reference** - Available at `/api/docs` when running (in development)
 
 ## 🤝 Contributing

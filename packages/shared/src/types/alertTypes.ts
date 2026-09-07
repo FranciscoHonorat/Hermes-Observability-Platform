@@ -68,3 +68,21 @@ export interface AlertNotification {
   success: boolean;
   error?: string;
 }
+
+/**
+ * Shape actually persisted in the `alert_rules` table and accepted by the
+ * API's /api/v1/alerts routes. Distinct from AlertRule above, which models
+ * a richer, not-yet-implemented multi-channel rule.
+ */
+export type AlertRuleCondition = 'gt' | 'lt' | 'eq';
+
+export interface AlertRuleInput {
+  name: string;
+  description?: string;
+  metric_name: string;
+  condition: AlertRuleCondition;
+  threshold: number;
+  app_name?: string;
+  email_recipients: string[];
+  enabled?: boolean;
+}

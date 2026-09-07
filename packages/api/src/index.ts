@@ -69,8 +69,9 @@ process.on('uncaughtException', (error) => {
     shutdown('uncaughtException');
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection:', { reason, promise });
+process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled Rejection:', { reason });
+    shutdown('unhandledRejection');
 });
 
 // Iniciar aplicação

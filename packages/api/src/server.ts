@@ -1,5 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { metricsRouter } from './routes/metrics';
 import { applicationsRouter } from './routes/applications';
 import { alertsRouter } from './routes/alerts';
@@ -12,12 +14,24 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
+    // Security headers
+    app.use(helmet());
+
     // CORS
     app.use(cors(config.cors));
 
     // Body parsing
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
+
+    // Rate limiting per source IP
+    app.use(rateLimit({
+        windowMs: config.rateLimit.windowMs,
+        max: config.rateLimit.max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Too many requests' }
+    }));
 
     // Request logging
     app.use((req: Request, res: Response, next: NextFunction) => {

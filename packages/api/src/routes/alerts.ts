@@ -1,9 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database';
-import { Logger } from '@hermes/shared';
+import { Logger, validateAlertRule, validateAlertRuleUpdate, ValidationError } from '@hermes/shared';
+import { adminAuth } from '../middleware/adminAuth';
 
 const router = Router();
 const logger = new Logger('AlertsAPI');
+
+// Mutating routes require an admin bearer token (see API_ADMIN_TOKEN)
+router.use((req, res, next) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+        return adminAuth(req, res, next);
+    }
+    next();
+});
 
 // GET /api/v1/alerts - Listar todos os alertas
 router.get('/', async (req: Request, res: Response) => {
@@ -89,6 +98,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/v1/alerts - Criar novo alerta
 router.post('/', async (req: Request, res: Response) => {
     try {
+        const body = { enabled: true, ...req.body };
+
+        try {
+            validateAlertRule(body);
+        } catch (validationError: any) {
+            if (validationError instanceof ValidationError) {
+                return res.status(400).json({ error: validationError.message });
+            }
+            throw validationError;
+        }
+
         const {
             name,
             description,
@@ -97,27 +117,8 @@ router.post('/', async (req: Request, res: Response) => {
             threshold,
             app_name,
             email_recipients,
-            enabled = true
-        } = req.body;
-
-        // Validação básica
-        if (!name || !metric_name || !condition || threshold === undefined || !email_recipients) {
-            return res.status(400).json({ 
-                error: 'Missing required fields: name, metric_name, condition, threshold, email_recipients' 
-            });
-        }
-
-        if (!['gt', 'lt', 'eq'].includes(condition)) {
-            return res.status(400).json({ 
-                error: 'Invalid condition. Must be: gt, lt, or eq' 
-            });
-        }
-
-        if (!Array.isArray(email_recipients) || email_recipients.length === 0) {
-            return res.status(400).json({ 
-                error: 'email_recipients must be a non-empty array' 
-            });
-        }
+            enabled
+        } = body;
 
         const query = `
             INSERT INTO alert_rules (
@@ -159,6 +160,16 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+
+        try {
+            validateAlertRuleUpdate(req.body);
+        } catch (validationError: any) {
+            if (validationError instanceof ValidationError) {
+                return res.status(400).json({ error: validationError.message });
+            }
+            throw validationError;
+        }
+
         const {
             name,
             description,

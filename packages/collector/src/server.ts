@@ -1,7 +1,11 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { metricsRouter } from './routes/metrics';
 import { errorHandler } from './middleware/errorHandler';
+import { apiKeyAuth } from './middleware/apiKeyAuth';
+import { config } from './config';
 import { Logger } from '@hermes/shared';
 
 const logger = new Logger('Server');
@@ -9,10 +13,22 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
+    // Security headers
+    app.use(helmet());
+
     // Middleware de parsing
     app.use(cors());
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
+
+    // Rate limiting per source IP
+    app.use(rateLimit({
+        windowMs: config.rateLimit.windowMs,
+        max: config.rateLimit.max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Too many requests' }
+    }));
 
     // Logging middleware
     app.use((req: Request, res: Response, next: NextFunction) => {
@@ -50,8 +66,8 @@ export function createServer(): Application {
         });
     });
 
-    // Rotas da API
-    app.use('/api/v1/metrics', metricsRouter);
+    // Rotas da API (ingestão requer x-api-key — ver COLLECTOR_API_KEYS)
+    app.use('/api/v1/metrics', apiKeyAuth, metricsRouter);
 
     // 404 handler
     app.use((req: Request, res: Response) => {

@@ -30,25 +30,43 @@ export async function processMetrics(): Promise<void> {
             const [streamKey, messages] = results[0] as [string, Array<[string, string[]]>];
 
             for (const [messageId, fields] of messages) {
+                let metric: Metric | undefined;
+
                 try {
                     const metricData = fields[1];
-                    const metric: Metric = JSON.parse(metricData);
+                    metric = JSON.parse(metricData);
 
                     //Validar métrica
                     validateMetric(metric);
+                } catch (error: any) {
+                    // Poison pill: malformed JSON or a metric that fails validation will
+                    // never succeed on retry, so ack it now to drain it from the pending
+                    // entries list instead of leaving it stuck there forever.
+                    logger.warn(`Métrica descartada (dead-letter) ${messageId}: ${error.message}`, { raw: fields[1] });
+                    await redis.xack(REDIS_METRICS_STREAM, config.processor.consumerGroup, messageId);
+                    continue;
+                }
 
+                if (!metric) {
+                    continue;
+                }
+                const validMetric: Metric = metric;
+
+                try {
                     //Persistir no banco
-                    await persistMetric(metric);
+                    await persistMetric(validMetric);
 
                     // Registrar aplicação
-                    await registerApplication(metric.metadata?.service || 'unknown');
+                    await registerApplication(validMetric.metadata?.service || 'unknown');
 
                     // Confirmar processamento
                     await redis.xack(REDIS_METRICS_STREAM, config.processor.consumerGroup, messageId);
 
                     logger.info(`Métrica processada e confirmada: ${messageId}`);
                 } catch (error: any) {
-                    logger.error(`Erro ao processar métrica ${messageId}: ${error.message}`);
+                    // Transient failure (e.g. DB unavailable): leave unacked so it is
+                    // redelivered to the consumer group and retried.
+                    logger.error(`Erro ao persistir métrica ${messageId}, será reprocessada: ${error.message}`);
                 }
             }
         } catch (error: any) {

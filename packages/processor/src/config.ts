@@ -3,7 +3,15 @@ import { DatabaseConfig, RedisConfig } from '@hermes/shared';
 
 dotenv.config();
 
-// Configurações para o serviço de processamento 
+function requireEnv(name: string): string {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${name}`);
+    }
+    return value;
+}
+
+// Configurações para o serviço de processamento
 export const config = {
     // Configurações do banco de dados PostgreSQL
     database: {
@@ -11,7 +19,7 @@ export const config = {
         port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
         database: process.env.POSTGRES_DB || 'hermes_observability',
         user: process.env.POSTGRES_USER || 'hermes',
-        password: process.env.POSTGRES_PASSWORD || 'hermes',
+        password: requireEnv('POSTGRES_PASSWORD'),
         poolSize: 10
     } as DatabaseConfig,
 

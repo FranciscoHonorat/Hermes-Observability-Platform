@@ -5,6 +5,18 @@ import { config } from './config';
 
 const logger = new Logger('AlertEngine');
 
+const HTML_ESCAPES: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+};
+
+function escapeHtml(value: unknown): string {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+}
+
 interface AlertRule {
     id: number;
     name: string;
@@ -136,9 +148,9 @@ async function evaluateRule(rule: AlertRule): Promise<void> {
     }
 }
 
-function evaluateCondition(
-    value: number, 
-    condition: string, 
+export function evaluateCondition(
+    value: number,
+    condition: string,
     threshold: number
 ): boolean {
     switch (condition) {
@@ -163,12 +175,12 @@ async function sendNotification(
         const subject = `🚨 Alerta: ${rule.name}`;
         const body = `
             <h2>Alerta Disparado</h2>
-            <p><strong>Regra:</strong> ${rule.name}</p>
-            <p><strong>Descrição:</strong> ${rule.description}</p>
-            <p><strong>Aplicação:</strong> ${metric.app_name}</p>
-            <p><strong>Métrica:</strong> ${rule.metric_name}</p>
-            <p><strong>Valor Atual:</strong> ${currentValue}</p>
-            <p><strong>Condição:</strong> ${rule.condition} ${rule.threshold}</p>
+            <p><strong>Regra:</strong> ${escapeHtml(rule.name)}</p>
+            <p><strong>Descrição:</strong> ${escapeHtml(rule.description)}</p>
+            <p><strong>Aplicação:</strong> ${escapeHtml(metric.app_name)}</p>
+            <p><strong>Métrica:</strong> ${escapeHtml(rule.metric_name)}</p>
+            <p><strong>Valor Atual:</strong> ${escapeHtml(currentValue)}</p>
+            <p><strong>Condição:</strong> ${escapeHtml(rule.condition)} ${escapeHtml(rule.threshold)}</p>
             <p><strong>Data/Hora:</strong> ${new Date().toISOString()}</p>
         `;
 

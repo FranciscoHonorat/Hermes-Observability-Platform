@@ -34,6 +34,8 @@ export interface AgentConfig {
   environment: string;
   host?: string;
   labels?: Record<string, string>;
+  /** Sent as the `x-api-key` header on every request to the Collector. */
+  apiKey?: string;
 }
 
 export interface ProcessorConfig {

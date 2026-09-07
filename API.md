@@ -27,9 +27,18 @@ Complete REST API reference for the Hermes Observability Platform.
 
 ## Authentication
 
-🔓 **MVP não possui autenticação**. Todos os endpoints são públicos.
+- **Read endpoints** (`GET /api/v1/metrics*`, `GET /api/v1/applications*`, `GET /api/v1/alerts*`) are public.
+- **`POST` / `PUT` / `DELETE /api/v1/alerts`** require `Authorization: Bearer <token>`, matching the API's `API_ADMIN_TOKEN`. In local Docker Compose this is left empty and the check is skipped; it is required once `NODE_ENV=production`.
+- **Metric ingestion** (`POST` on the Collector, not this API — see [DOCKER.md](DOCKER.md#authentication)) requires an `x-api-key` header matching one of `COLLECTOR_API_KEYS`.
 
-> **v2+**: Será implementado API keys e JWT tokens.
+```bash
+curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "...": "..." }'
+```
+
+> Full user accounts / RBAC are still out of MVP scope (see `docs/MVP.md`); this is a single shared operator token, not per-user auth.
 
 ---
 
@@ -366,6 +375,7 @@ Cria um novo alerta.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High CPU Usage",
@@ -421,6 +431,7 @@ Mesmos campos do [Create Alert](#create-alert), mas todos opcionais. Apenas os c
 
 ```bash
 curl -X PUT http://localhost:3000/api/v1/alerts/1 \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "threshold": 90,
@@ -463,7 +474,8 @@ Remove um alerta.
 **Example Request:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/alerts/1
+curl -X DELETE http://localhost:3000/api/v1/alerts/1 \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN"
 ```
 
 **Example Response:**
@@ -609,9 +621,14 @@ curl "http://localhost:3000/api/v1/metrics/timeseries?appName=test"
 
 ## Rate Limiting
 
-⚠️ **MVP não possui rate limiting**.
+Both the API and the Collector apply a per-IP limit (`express-rate-limit`), configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`:
 
-> **v2+**: Será implementado rate limiting de 1000 requests/minute por IP.
+| Service | Default |
+|---|---|
+| API | 300 requests / 60s |
+| Collector | 120 requests / 60s |
+
+A request over the limit gets `429` with `{ "error": "Too many requests" }`. Limits are per source IP, not per API key/token.
 
 ---
 
@@ -649,6 +666,7 @@ curl http://localhost:3000/health
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High Error Rate",
@@ -726,12 +744,13 @@ async function getTimeseries(appName, metricName, hours = 24) {
   return data.timeseries;
 }
 
-// Create alert
-async function createAlert(alertConfig) {
+// Create alert (requires the API's admin token)
+async function createAlert(alertConfig, adminToken) {
   const response = await fetch('http://localhost:3000/api/v1/alerts', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`,
     },
     body: JSON.stringify(alertConfig)
   });

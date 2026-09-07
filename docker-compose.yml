@@ -6,6 +6,9 @@ services:
     environment:
       POSTGRES_DB: hermes_observability
       POSTGRES_USER: hermes
+      # Dev-only credential for local Compose. Never reuse this value outside
+      # this file — production deployments (see render.yml) must generate or
+      # inject a real secret instead.
       POSTGRES_PASSWORD: hermes_dev_password
     ports:
       - "5432:5432"
@@ -49,6 +52,13 @@ services:
       REDIS_PORT: 6379
       COLLECTOR_PORT: 4000
       NODE_ENV: development
+      # Comma-separated API keys instrumented apps must send as x-api-key.
+      # Left empty here so local dev works unauthenticated; set it (and
+      # HERMES_API_KEY on the agent) to test the auth path locally.
+      COLLECTOR_API_KEYS: ""
+      # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
     depends_on:
       redis:
         condition: service_healthy
@@ -98,6 +108,13 @@ services:
       REDIS_PORT: 6379
       API_PORT: 3000
       NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      # Bearer token required on POST/PUT/DELETE /api/v1/alerts. Left empty
+      # here so local dev works unauthenticated; set it to test the auth path.
+      API_ADMIN_TOKEN: ""
+      # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +134,8 @@ services:
       - "3001:80"
     environment:
       VITE_API_URL: http://localhost:3000
+      # Injected server-side into nginx's proxy — see docker/nginx.conf.
+      API_ADMIN_TOKEN: ""
     depends_on:
       - api
     networks:

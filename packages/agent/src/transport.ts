@@ -7,13 +7,14 @@ export class MetricTransport {
     private client: AxiosInstance;
     private collectorUrl: string;
 
-    constructor(collectorUrl: string) {
+    constructor(collectorUrl: string, apiKey?: string) {
         this.collectorUrl = collectorUrl;
         this.client = axios.create({
             baseURL: collectorUrl,
             timeout: 5000,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...(apiKey ? { 'x-api-key': apiKey } : {})
             }
         });
     }

@@ -52,6 +52,8 @@ services:
         value: 4000
       - key: NODE_ENV
         value: production
+      - key: COLLECTOR_API_KEYS
+        generateValue: true # Distribute this to instrumented apps as HERMES_API_KEY
 
   # -------------------------------------------------------------
   # 4. Hermes Processor (Worker de Background)
@@ -114,6 +116,13 @@ services:
         value: 3000
       - key: NODE_ENV
         value: production
+      - key: API_ADMIN_TOKEN
+        generateValue: true # Bearer token required on POST/PUT/DELETE /api/v1/alerts
+      - key: CORS_ORIGIN
+        fromService:
+          type: web
+          name: hermes-ui
+          property: url
 
   # -------------------------------------------------------------
   # 6. Hermes UI (React Dashboard - Web Service Público)
@@ -130,3 +139,10 @@ services:
           type: web
           name: hermes-api
           property: url
+      # Injected server-side into nginx's proxy (docker/nginx.conf) so the
+      # admin token never ships in the browser bundle.
+      - key: API_ADMIN_TOKEN
+        fromService:
+          type: web
+          name: hermes-api
+          property: envVar:API_ADMIN_TOKEN
