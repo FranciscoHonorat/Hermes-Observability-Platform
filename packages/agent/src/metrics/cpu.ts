@@ -14,7 +14,7 @@ export const collectCpuMetrics = (): Metric[] => {
 
     cpus.forEach(cpu => {
         for (const type in cpu.times) {
-            totalIdle += cpu.times[type as keyof typeof cpu.times];
+            totalTick += cpu.times[type as keyof typeof cpu.times];
         }
         totalIdle += cpu.times.idle;
     });

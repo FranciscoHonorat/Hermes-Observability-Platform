@@ -51,10 +51,14 @@ const Dashboard = () => {
       if (range.hours > 24) interval = '1 hour';
       if (range.hours > 168) interval = '1 day';
 
+      // Must match the metric names @hermes/agent actually emits
+      // (packages/agent/src/metrics/{cpu,memory,eventloop}.ts), not a
+      // guessed naming convention — these three were wrong (cpu_usage_percent
+      // etc.) and silently returned empty timeseries for any real app.
       const metricNames = [
-        'cpu_usage_percent',
-        'memory_usage_percent',
-        'event_loop_lag_ms',
+        'system.cpu.usage',
+        'system.memory.usage',
+        'nodejs.eventloop.lag',
         'http_requests_total',
         'http_request_duration_ms'
       ];
@@ -111,7 +115,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <MetricChart
-              data={metricsData['cpu_usage_percent'] || []}
+              data={metricsData['system.cpu.usage'] || []}
               title="CPU Usage"
               unit="%"
               color="rgb(59, 130, 246)"
@@ -120,7 +124,7 @@ const Dashboard = () => {
 
           <Card>
             <MetricChart
-              data={metricsData['memory_usage_percent'] || []}
+              data={metricsData['system.memory.usage'] || []}
               title="Memory Usage"
               unit="%"
               color="rgb(139, 92, 246)"
@@ -129,7 +133,7 @@ const Dashboard = () => {
 
           <Card>
             <MetricChart
-              data={metricsData['event_loop_lag_ms'] || []}
+              data={metricsData['nodejs.eventloop.lag'] || []}
               title="Event Loop Lag"
               unit="ms"
               color="rgb(245, 158, 11)"
@@ -140,8 +144,9 @@ const Dashboard = () => {
             <MetricChart
               data={metricsData['http_requests_total'] || []}
               title="HTTP Requests"
-              unit="req/s"
+              unit="requests"
               color="rgb(16, 185, 129)"
+              mode="count"
             />
           </Card>
 

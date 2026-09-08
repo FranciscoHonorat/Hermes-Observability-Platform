@@ -260,6 +260,8 @@ app.listen(3000, () => {
 });
 ```
 
+**Not a Node.js app?** There's no SDK for other languages, but the Collector's `POST /api/v1/{metrics,traces,logs}` is plain HTTP+JSON — any language can send data directly. A full Go client exists at [`packages/agent-go`](packages/agent-go/README.md) (metrics, auto-instrumentation, tracing with cross-service `traceparent` propagation, logs — verified interoperable with this same UI/API).
+
 ### 2. Custom Metrics Types
 
 **Counter** - Sempre cresce (requisições, erros, pedidos):

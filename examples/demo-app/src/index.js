@@ -13,6 +13,7 @@ const { createAgent, increment, gauge, histogram } = require('@hermes/agent');
 // =============================================================================
 
 const agent = createAgent();
+agent.start(); // periodic flush + auto CPU/memory/event-loop metrics
 
 console.log('✅ Hermes Agent initialized');
 console.log('📊 Sending metrics to collector...');
