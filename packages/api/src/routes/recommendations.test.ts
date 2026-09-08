@@ -7,44 +7,62 @@ vi.mock('../database', () => ({
 
 import { createServer } from '../server';
 import { pool } from '../database';
+import { adminToken, viewerToken } from '../testUtils/auth';
 
 const app = createServer();
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
+const admin = () => `Bearer ${adminToken()}`;
+const viewer = () => `Bearer ${viewerToken()}`;
 
 beforeEach(() => {
   query.mockReset();
 });
 
 describe('GET /api/v1/recommendations', () => {
-  it('does not require a token for reads', async () => {
-    query.mockResolvedValueOnce({ rows: [] });
+  it('rejects requests without a session', async () => {
     const res = await request(app).get('/api/v1/recommendations');
+    expect(res.status).toBe(401);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('allows a viewer session to read', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/v1/recommendations').set('Authorization', viewer());
     expect(res.status).toBe(200);
     expect(res.body.recommendations).toEqual([]);
   });
 });
 
 describe('PUT /api/v1/recommendations/:id', () => {
-  it('rejects without an admin token', async () => {
+  it('rejects without a session', async () => {
     const res = await request(app).put('/api/v1/recommendations/1').send({ status: 'acknowledged' });
     expect(res.status).toBe(401);
     expect(query).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid status even with a valid token', async () => {
+  it('rejects a viewer session', async () => {
     const res = await request(app)
       .put('/api/v1/recommendations/1')
-      .set('Authorization', 'Bearer test-admin-token')
+      .set('Authorization', viewer())
+      .send({ status: 'acknowledged' });
+    expect(res.status).toBe(403);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid status even with an admin session', async () => {
+    const res = await request(app)
+      .put('/api/v1/recommendations/1')
+      .set('Authorization', admin())
       .send({ status: 'snoozed' });
     expect(res.status).toBe(400);
     expect(query).not.toHaveBeenCalled();
   });
 
-  it('updates status with a valid token and payload', async () => {
+  it('updates status with an admin session and valid payload', async () => {
     query.mockResolvedValueOnce({ rows: [{ id: 1, status: 'acknowledged' }] });
     const res = await request(app)
       .put('/api/v1/recommendations/1')
-      .set('Authorization', 'Bearer test-admin-token')
+      .set('Authorization', admin())
       .send({ status: 'acknowledged' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('acknowledged');
@@ -54,7 +72,7 @@ describe('PUT /api/v1/recommendations/:id', () => {
     query.mockResolvedValueOnce({ rows: [] });
     const res = await request(app)
       .put('/api/v1/recommendations/999')
-      .set('Authorization', 'Bearer test-admin-token')
+      .set('Authorization', admin())
       .send({ status: 'dismissed' });
     expect(res.status).toBe(404);
   });

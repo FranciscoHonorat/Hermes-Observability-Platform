@@ -19,11 +19,18 @@ export * from './types/anomalyTypes';
 // Types - Recomendações
 export * from './types/recommendationTypes';
 
+// Types - Auth (tenants, users, API keys)
+export * from './types/authTypes';
+
 // Utilities - Validação
 export * from './utilities/validationUtilities';
 
 // Utilities - Logger
 export * from './utilities/simpleLogger';
+
+// Utilities - Auth
+export * from './utilities/authUtilities';
+export * from './utilities/authMiddleware';
 
 // Constants
 export * from './constants/applicationConstants';

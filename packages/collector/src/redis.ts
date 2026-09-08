@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM, REDIS_LOGS_STREAM } from '@hermes/shared';
+import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM, REDIS_LOGS_STREAM, REDIS_API_KEYS_HASH } from '@hermes/shared';
 import { config } from './config';
 
 const logger = new Logger('Redis');
@@ -61,6 +61,14 @@ export async function addSpanToStream(span: any): Promise<string> {
         JSON.stringify(span)
     );
     return id || '';
+}
+
+// api_keys.key_hash -> tenant_id lookup, written by packages/admin on key
+// creation/revocation. Returns null if the hash isn't cached (unknown or
+// revoked key). See middleware/apiKeyAuth.ts and docs/adr/0002-*.md.
+export async function lookupTenantForApiKey(keyHash: string): Promise<number | null> {
+    const tenantId = await redis.hget(REDIS_API_KEYS_HASH, keyHash);
+    return tenantId ? Number(tenantId) : null;
 }
 
 // Função para adicionar log ao stream

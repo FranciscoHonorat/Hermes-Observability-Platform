@@ -13,6 +13,8 @@ export interface Span {
   startTime: number;      // epoch ms
   duration: number;       // ms
   status: SpanStatus;
+  // Set server-side by the Collector's apiKeyAuth — see docs/adr/0002-*.md.
+  tenantId?: number;
   attributes?: Record<string, string | number | boolean>;
 }
 

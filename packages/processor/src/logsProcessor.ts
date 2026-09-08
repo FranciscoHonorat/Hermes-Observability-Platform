@@ -70,10 +70,15 @@ export async function processLogs(): Promise<void> {
                 // Persistir todo o lote válido numa única query
                 await persistLogsBatch(valid);
 
-                // Registrar aplicações distintas do lote
-                const services = new Set(valid.map(v => v.log.serviceName || 'unknown'));
-                for (const service of services) {
-                    await registerApplication(service);
+                // Registrar aplicações distintas do lote (por tenant)
+                const apps = new Map<string, { tenantId: number; appName: string }>();
+                for (const { log } of valid) {
+                    const tenantId = log.tenantId ?? 1;
+                    const appName = log.serviceName || 'unknown';
+                    apps.set(`${tenantId}:${appName}`, { tenantId, appName });
+                }
+                for (const { tenantId, appName } of apps.values()) {
+                    await registerApplication(tenantId, appName);
                 }
 
                 // Confirmar processamento de todo o lote
@@ -97,17 +102,18 @@ export async function processLogs(): Promise<void> {
 }
 
 async function persistLogsBatch(items: Array<{ log: LogEntry; messageId: string }>): Promise<void> {
-    const COLUMNS = 8; // time, app_name, level, message, trace_id, span_id, attributes, stream_id
+    const COLUMNS = 9; // time, tenant_id, app_name, level, message, trace_id, span_id, attributes, stream_id
     const values: any[] = [];
     const placeholders: string[] = [];
 
     items.forEach(({ log, messageId }, i) => {
         const base = i * COLUMNS;
         placeholders.push(
-            `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`
+            `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9})`
         );
         values.push(
             new Date(log.timestamp),
+            log.tenantId ?? 1, // Collector always sets this; 1 (default tenant) is a defensive fallback
             log.serviceName || 'unknown',
             log.level,
             log.message,
@@ -119,19 +125,19 @@ async function persistLogsBatch(items: Array<{ log: LogEntry; messageId: string 
     });
 
     await pool.query(
-        `INSERT INTO logs (time, app_name, level, message, trace_id, span_id, attributes, stream_id)
+        `INSERT INTO logs (time, tenant_id, app_name, level, message, trace_id, span_id, attributes, stream_id)
          VALUES ${placeholders.join(', ')}
-         ON CONFLICT (time, app_name, stream_id) DO NOTHING`,
+         ON CONFLICT (time, tenant_id, app_name, stream_id) DO NOTHING`,
         values
     );
 }
 
-async function registerApplication(appName: string): Promise<void> {
+async function registerApplication(tenantId: number, appName: string): Promise<void> {
     await pool.query(
-        `INSERT INTO applications (name, last_seen)
-         VALUES ($1, NOW())
-         ON CONFLICT (name) DO UPDATE
+        `INSERT INTO applications (tenant_id, name, last_seen)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (tenant_id, name) DO UPDATE
          SET last_seen = NOW()`,
-        [appName]
+        [tenantId, appName]
     );
 }

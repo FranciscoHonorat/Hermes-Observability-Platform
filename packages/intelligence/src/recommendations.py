@@ -51,15 +51,21 @@ def is_resource_metric(metric_name: str) -> bool:
 
 
 def _has_open_recent(
-    conn, app_name: str, category: str, related_metric_name: str | None = None, related_operation_name: str | None = None
+    conn,
+    tenant_id: int,
+    app_name: str,
+    category: str,
+    related_metric_name: str | None = None,
+    related_operation_name: str | None = None,
 ) -> bool:
     conditions = [
+        "tenant_id = %s",
         "app_name = %s",
         "category = %s",
         "status = 'open'",
         "created_at >= NOW() - (%s::text || ' hours')::interval",
     ]
-    params: list = [app_name, category, config.recommendation_cooldown_hours]
+    params: list = [tenant_id, app_name, category, config.recommendation_cooldown_hours]
     if related_metric_name is not None:
         conditions.append("related_metric_name = %s")
         params.append(related_metric_name)
@@ -72,6 +78,7 @@ def _has_open_recent(
 
 def _insert_recommendation(
     conn,
+    tenant_id: int,
     app_name: str,
     category: str,
     severity: str,
@@ -85,10 +92,11 @@ def _insert_recommendation(
         conn,
         """
         INSERT INTO recommendations
-            (app_name, category, severity, title, description, related_metric_name, related_operation_name, evidence)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            (tenant_id, app_name, category, severity, title, description, related_metric_name, related_operation_name, evidence)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
+            tenant_id,
             app_name,
             category,
             severity,
@@ -106,23 +114,26 @@ def run_latency_sweep(conn) -> int:
         conn,
         """
         WITH current_window AS (
-            SELECT service_name, operation_name,
+            SELECT tenant_id, service_name, operation_name,
                    percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95,
                    COUNT(*) AS samples
             FROM spans
             WHERE start_time >= NOW() - INTERVAL '1 hour'
-            GROUP BY service_name, operation_name
+            GROUP BY tenant_id, service_name, operation_name
         ),
         baseline_window AS (
-            SELECT service_name, operation_name,
+            SELECT tenant_id, service_name, operation_name,
                    percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95
             FROM spans
             WHERE start_time >= NOW() - INTERVAL '24 hours' AND start_time < NOW() - INTERVAL '1 hour'
-            GROUP BY service_name, operation_name
+            GROUP BY tenant_id, service_name, operation_name
         )
-        SELECT c.service_name, c.operation_name, c.p95 AS current_p95, c.samples, b.p95 AS baseline_p95
+        SELECT c.tenant_id, c.service_name, c.operation_name, c.p95 AS current_p95, c.samples, b.p95 AS baseline_p95
         FROM current_window c
-        JOIN baseline_window b ON b.service_name = c.service_name AND b.operation_name = c.operation_name
+        JOIN baseline_window b
+            ON b.tenant_id = c.tenant_id
+           AND b.service_name = c.service_name
+           AND b.operation_name = c.operation_name
         """,
     )
 
@@ -131,11 +142,12 @@ def run_latency_sweep(conn) -> int:
         current_p95, baseline_p95, samples = float(row["current_p95"]), float(row["baseline_p95"]), int(row["samples"])
         if not evaluate_latency_rule(current_p95, baseline_p95, samples):
             continue
-        app_name, operation = row["service_name"], row["operation_name"]
-        if _has_open_recent(conn, app_name, "latency", related_operation_name=operation):
+        tenant_id, app_name, operation = row["tenant_id"], row["service_name"], row["operation_name"]
+        if _has_open_recent(conn, tenant_id, app_name, "latency", related_operation_name=operation):
             continue
         _insert_recommendation(
             conn,
+            tenant_id,
             app_name,
             "latency",
             "warning",
@@ -155,12 +167,12 @@ def run_error_rate_sweep(conn) -> int:
     rows = query(
         conn,
         """
-        SELECT service_name, operation_name,
+        SELECT tenant_id, service_name, operation_name,
                COUNT(*) FILTER (WHERE status = 'error') AS error_count,
                COUNT(*) AS samples
         FROM spans
         WHERE start_time >= NOW() - INTERVAL '1 hour'
-        GROUP BY service_name, operation_name
+        GROUP BY tenant_id, service_name, operation_name
         """,
     )
 
@@ -171,11 +183,12 @@ def run_error_rate_sweep(conn) -> int:
         error_ratio = (error_count / samples) if samples else 0.0
         if not evaluate_error_rate_rule(error_ratio, samples):
             continue
-        app_name, operation = row["service_name"], row["operation_name"]
-        if _has_open_recent(conn, app_name, "error_rate", related_operation_name=operation):
+        tenant_id, app_name, operation = row["tenant_id"], row["service_name"], row["operation_name"]
+        if _has_open_recent(conn, tenant_id, app_name, "error_rate", related_operation_name=operation):
             continue
         _insert_recommendation(
             conn,
+            tenant_id,
             app_name,
             "error_rate",
             "critical" if error_ratio > 0.2 else "warning",
@@ -195,7 +208,7 @@ def run_resource_sweep(conn) -> int:
     rows = query(
         conn,
         """
-        SELECT id, app_name, metric_name, value, detected_at
+        SELECT id, tenant_id, app_name, metric_name, value, detected_at
         FROM anomalies
         WHERE severity = 'critical' AND detected_at >= NOW() - INTERVAL '1 hour'
         """,
@@ -206,11 +219,12 @@ def run_resource_sweep(conn) -> int:
         metric_name = row["metric_name"]
         if not is_resource_metric(metric_name):
             continue
-        app_name = row["app_name"]
-        if _has_open_recent(conn, app_name, "resource", related_metric_name=metric_name):
+        tenant_id, app_name = row["tenant_id"], row["app_name"]
+        if _has_open_recent(conn, tenant_id, app_name, "resource", related_metric_name=metric_name):
             continue
         _insert_recommendation(
             conn,
+            tenant_id,
             app_name,
             "resource",
             "critical",

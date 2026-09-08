@@ -29,17 +29,19 @@ router.get('/', async (req: Request, res: Response) => {
                 span_id,
                 attributes
             FROM logs
-            WHERE ($1::text IS NULL OR app_name = $1)
-              AND ($2::text IS NULL OR level = $2)
-              AND ($3::text IS NULL OR message ILIKE '%' || $3 || '%')
-              AND ($4::text IS NULL OR trace_id = $4)
-              AND ($5::timestamptz IS NULL OR time >= $5)
-              AND ($6::timestamptz IS NULL OR time <= $6)
+            WHERE tenant_id = $1
+              AND ($2::text IS NULL OR app_name = $2)
+              AND ($3::text IS NULL OR level = $3)
+              AND ($4::text IS NULL OR message ILIKE '%' || $4 || '%')
+              AND ($5::text IS NULL OR trace_id = $5)
+              AND ($6::timestamptz IS NULL OR time >= $6)
+              AND ($7::timestamptz IS NULL OR time <= $7)
             ORDER BY time DESC
-            LIMIT $7 OFFSET $8
+            LIMIT $8 OFFSET $9
         `;
 
         const params = [
+            req.user!.tenantId,
             appName ?? null,
             level ?? null,
             search ?? null,

@@ -31,12 +31,11 @@ export const config = {
             : (isProduction ? requireEnv('CORS_ORIGIN') : '*'),
         credentials: true
     },
-    auth: {
-        // Bearer token required on alert-mutating routes (POST/PUT/DELETE).
-        // Leave unset only for local development; the API refuses to start
-        // without it in production.
-        adminToken: isProduction ? requireEnv('API_ADMIN_TOKEN') : process.env.API_ADMIN_TOKEN
-    },
+    // JWT_SECRET itself is read by @hermes/shared's authUtilities (kept a
+    // pure, config-free utility there); this just enforces it's actually
+    // set before this service starts in production. See docs/adr/0002-*.md
+    // — replaces the old single-shared-token API_ADMIN_TOKEN entirely.
+    jwtSecretRequired: isProduction ? requireEnv('JWT_SECRET') : process.env.JWT_SECRET,
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
         max: parseInt(process.env.RATE_LIMIT_MAX || '300', 10)

@@ -1,16 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database';
-import { Logger, validateRecommendationStatusUpdate, ValidationError } from '@hermes/shared';
-import { adminAuth } from '../middleware/adminAuth';
+import { Logger, validateRecommendationStatusUpdate, ValidationError, requireRole } from '@hermes/shared';
 
 const router = Router();
 const logger = new Logger('RecommendationsAPI');
 
-// Only the status field is mutable (acknowledge/dismiss) — gated the same
-// way alerts.ts gates its mutating routes.
+// Only the status field is mutable (acknowledge/dismiss) — admin-only, same
+// as alerts.ts's mutating routes.
 router.use((req, res, next) => {
     if (['PUT'].includes(req.method)) {
-        return adminAuth(req, res, next);
+        return requireRole('admin')(req, res, next);
     }
     next();
 });
@@ -40,10 +39,10 @@ router.get('/', async (req: Request, res: Response) => {
                 created_at,
                 updated_at
             FROM recommendations
-            WHERE 1=1
+            WHERE tenant_id = $1
         `;
-        const params: any[] = [];
-        let paramIndex = 1;
+        const params: any[] = [req.user!.tenantId];
+        let paramIndex = 2;
 
         if (appName) {
             query += ` AND app_name = $${paramIndex++}`;
@@ -83,7 +82,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query('SELECT * FROM recommendations WHERE id = $1', [id]);
+        const result = await pool.query(
+            'SELECT * FROM recommendations WHERE id = $1 AND tenant_id = $2',
+            [id, req.user!.tenantId]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Recommendation not found' });
@@ -114,9 +116,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         const result = await pool.query(
             `UPDATE recommendations
              SET status = $1, updated_at = NOW()
-             WHERE id = $2
+             WHERE id = $2 AND tenant_id = $3
              RETURNING *`,
-            [req.body.status, id]
+            [req.body.status, id, req.user!.tenantId]
         );
 
         if (result.rows.length === 0) {

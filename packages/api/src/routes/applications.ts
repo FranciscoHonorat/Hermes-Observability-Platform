@@ -9,17 +9,18 @@ const logger = new Logger('ApplicationsAPI');
 router.get('/', async (req: Request, res: Response) => {
     try {
         const query = `
-            SELECT 
+            SELECT
                 name,
                 description,
                 created_at,
                 last_seen,
                 (NOW() - last_seen) < INTERVAL '5 minutes' as is_active
             FROM applications
+            WHERE tenant_id = $1
             ORDER BY last_seen DESC
         `;
 
-        const result = await pool.query(query);
+        const result = await pool.query(query, [req.user!.tenantId]);
 
         logger.debug(`Fetched ${result.rows.length} applications`);
 
@@ -40,17 +41,17 @@ router.get('/:name', async (req: Request, res: Response) => {
         const { name } = req.params;
 
         const query = `
-            SELECT 
+            SELECT
                 name,
                 description,
                 created_at,
                 last_seen,
                 (NOW() - last_seen) < INTERVAL '5 minutes' as is_active
             FROM applications
-            WHERE name = $1
+            WHERE name = $1 AND tenant_id = $2
         `;
 
-        const result = await pool.query(query, [name]);
+        const result = await pool.query(query, [name, req.user!.tenantId]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Application not found' });
@@ -71,19 +72,19 @@ router.get('/:name/metrics', async (req: Request, res: Response) => {
         const { limit = '100' } = req.query;
 
         const query = `
-            SELECT 
+            SELECT
                 time,
                 metric_name,
                 metric_type,
                 value,
                 labels
             FROM metrics
-            WHERE app_name = $1
+            WHERE app_name = $1 AND tenant_id = $2
             ORDER BY time DESC
-            LIMIT $2
+            LIMIT $3
         `;
 
-        const result = await pool.query(query, [name, Number(limit)]);
+        const result = await pool.query(query, [name, req.user!.tenantId, Number(limit)]);
 
         res.json({
             application: name,

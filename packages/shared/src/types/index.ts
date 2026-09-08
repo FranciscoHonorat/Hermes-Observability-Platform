@@ -9,3 +9,4 @@ export * from './traceTypes';
 export * from './logTypes';
 export * from './anomalyTypes';
 export * from './recommendationTypes';
+export * from './authTypes';

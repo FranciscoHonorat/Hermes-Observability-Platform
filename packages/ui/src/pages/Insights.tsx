@@ -4,6 +4,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { format } from 'date-fns';
+import { useIsAdmin } from '../context/AuthContext';
 
 const SEVERITY_BADGE: Record<string, string> = {
   info: 'bg-blue-100 text-blue-800',
@@ -12,6 +13,7 @@ const SEVERITY_BADGE: Record<string, string> = {
 };
 
 const Insights = () => {
+  const isAdmin = useIsAdmin();
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [appFilter, setAppFilter] = useState('');
@@ -95,20 +97,22 @@ const Insights = () => {
                           {rec.app_name} &middot; {format(new Date(rec.created_at), 'MMM dd, yyyy HH:mm:ss')}
                         </p>
                       </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleStatusChange(rec.id, 'acknowledged')}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                        >
-                          Acknowledge
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(rec.id, 'dismissed')}
-                          className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleStatusChange(rec.id, 'acknowledged')}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                          >
+                            Acknowledge
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(rec.id, 'dismissed')}
+                            className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

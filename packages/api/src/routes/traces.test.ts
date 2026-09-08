@@ -7,18 +7,26 @@ vi.mock('../database', () => ({
 
 import { createServer } from '../server';
 import { pool } from '../database';
+import { adminToken } from '../testUtils/auth';
 
 const app = createServer();
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
+const auth = () => `Bearer ${adminToken()}`;
 
 beforeEach(() => {
   query.mockReset();
 });
 
 describe('GET /api/v1/traces', () => {
-  it('does not require a token for reads', async () => {
-    query.mockResolvedValueOnce({ rows: [] });
+  it('rejects requests without a session', async () => {
     const res = await request(app).get('/api/v1/traces');
+    expect(res.status).toBe(401);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('returns traces for an authenticated request', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/v1/traces').set('Authorization', auth());
     expect(res.status).toBe(200);
     expect(res.body.traces).toEqual([]);
   });
@@ -37,7 +45,7 @@ describe('GET /api/v1/traces', () => {
       }]
     });
 
-    const res = await request(app).get('/api/v1/traces');
+    const res = await request(app).get('/api/v1/traces').set('Authorization', auth());
 
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(1);
@@ -54,9 +62,14 @@ describe('GET /api/v1/traces', () => {
 });
 
 describe('GET /api/v1/traces/:traceId', () => {
+  it('rejects requests without a session', async () => {
+    const res = await request(app).get(`/api/v1/traces/${'a'.repeat(32)}`);
+    expect(res.status).toBe(401);
+  });
+
   it('returns 404 for an unknown trace', async () => {
     query.mockResolvedValueOnce({ rows: [] });
-    const res = await request(app).get(`/api/v1/traces/${'a'.repeat(32)}`);
+    const res = await request(app).get(`/api/v1/traces/${'a'.repeat(32)}`).set('Authorization', auth());
     expect(res.status).toBe(404);
   });
 
@@ -77,12 +90,19 @@ describe('GET /api/v1/traces/:traceId', () => {
       }]
     });
 
-    const res = await request(app).get(`/api/v1/traces/${traceId}`);
+    const res = await request(app).get(`/api/v1/traces/${traceId}`).set('Authorization', auth());
 
     expect(res.status).toBe(200);
     expect(res.body.traceId).toBe(traceId);
     expect(res.body.spans).toHaveLength(1);
     expect(res.body.spans[0].spanId).toBe('b'.repeat(16));
     expect(res.body.spans[0].parentSpanId).toBeUndefined();
+  });
+
+  it('scopes the lookup to the caller\'s tenant (closes a cross-tenant id-guess leak)', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await request(app).get(`/api/v1/traces/${'a'.repeat(32)}`).set('Authorization', auth());
+    const [, params] = query.mock.calls[0];
+    expect(params).toEqual(['a'.repeat(32), 1]); // [traceId, TEST_TENANT_ID]
   });
 });

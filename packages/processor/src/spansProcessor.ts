@@ -57,7 +57,7 @@ export async function processSpans(): Promise<void> {
                     await persistSpan(validSpan);
 
                     // Registrar aplicação
-                    await registerApplication(validSpan.serviceName || 'unknown');
+                    await registerApplication(validSpan.tenantId ?? 1, validSpan.serviceName || 'unknown');
 
                     // Confirmar processamento
                     await redis.xack(REDIS_TRACES_STREAM, config.processor.tracesConsumerGroup, messageId);
@@ -82,16 +82,18 @@ export async function processSpans(): Promise<void> {
 async function persistSpan(span: Span): Promise<void> {
   // No stream_id needed in the conflict target (unlike metrics): spanId is a
   // random 8-byte value generated once per span, not a coarse client
-  // timestamp, so (traceId, spanId) can never legitimately collide between
-  // two distinct spans. DO NOTHING (not DO UPDATE) because a span's data is
-  // immutable once emitted — a redelivered duplicate is a true no-op.
+  // timestamp, so (tenantId, traceId, spanId) can never legitimately
+  // collide between two distinct spans. DO NOTHING (not DO UPDATE) because
+  // a span's data is immutable once emitted — a redelivered duplicate is a
+  // true no-op.
   await pool.query(
-    `INSERT INTO spans (trace_id, span_id, parent_span_id, service_name, operation_name, start_time, duration_ms, status, attributes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT (start_time, trace_id, span_id) DO NOTHING`,
+    `INSERT INTO spans (trace_id, span_id, tenant_id, parent_span_id, service_name, operation_name, start_time, duration_ms, status, attributes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (start_time, tenant_id, trace_id, span_id) DO NOTHING`,
     [
       span.traceId,
       span.spanId,
+      span.tenantId ?? 1, // Collector always sets this; 1 (default tenant) is a defensive fallback
       span.parentSpanId || null,
       span.serviceName,
       span.operationName,
@@ -103,12 +105,12 @@ async function persistSpan(span: Span): Promise<void> {
   );
 }
 
-async function registerApplication(appName: string): Promise<void> {
+async function registerApplication(tenantId: number, appName: string): Promise<void> {
   await pool.query(
-    `INSERT INTO applications (name, last_seen)
-     VALUES ($1, NOW())
-     ON CONFLICT (name) DO UPDATE
+    `INSERT INTO applications (tenant_id, name, last_seen)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (tenant_id, name) DO UPDATE
      SET last_seen = NOW()`,
-    [appName]
+    [tenantId, appName]
   );
 }

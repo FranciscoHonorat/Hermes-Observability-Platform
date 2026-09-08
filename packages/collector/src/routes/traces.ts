@@ -42,6 +42,10 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
                 // Validar span
                 validateSpan(span);
 
+                // tenantId is always overwritten here, never trusted from
+                // the client. See docs/adr/0002-*.md.
+                span.tenantId = req.tenantId;
+
                 // Adicionar ao Redis Stream
                 await addSpanToStream(span);
                 accepted++;

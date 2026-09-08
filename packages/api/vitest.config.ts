@@ -6,7 +6,7 @@ export default defineConfig({
     env: {
       POSTGRES_PASSWORD: 'test',
       NODE_ENV: 'test',
-      API_ADMIN_TOKEN: 'test-admin-token'
+      JWT_SECRET: 'test-jwt-secret'
     }
   }
 });

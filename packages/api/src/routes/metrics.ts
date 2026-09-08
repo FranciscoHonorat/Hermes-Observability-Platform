@@ -8,17 +8,17 @@ const logger = new Logger('MetricsAPI');
 // GET /api/v1/metrics - Buscar métricas com filtros
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const { 
-            appName, 
-            metricName, 
-            from, 
-            to, 
+        const {
+            appName,
+            metricName,
+            from,
+            to,
             limit = '1000',
             offset = '0'
         } = req.query;
 
         let query = `
-            SELECT 
+            SELECT
                 time,
                 app_name,
                 metric_name,
@@ -26,10 +26,10 @@ router.get('/', async (req: Request, res: Response) => {
                 value,
                 labels
             FROM metrics
-            WHERE 1=1
+            WHERE tenant_id = $1
         `;
-        const params: any[] = [];
-        let paramIndex = 1;
+        const params: any[] = [req.user!.tenantId];
+        let paramIndex = 2;
 
         if (appName) {
             query += ` AND app_name = $${paramIndex++}`;
@@ -79,22 +79,22 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/v1/metrics/timeseries - Dados agregados por tempo
 router.get('/timeseries', async (req: Request, res: Response) => {
     try {
-        const { 
-            appName, 
-            metricName, 
-            interval = '1 minute', 
-            from, 
-            to 
+        const {
+            appName,
+            metricName,
+            interval = '1 minute',
+            from,
+            to
         } = req.query;
 
         if (!appName || !metricName || !from || !to) {
-            return res.status(400).json({ 
-                error: 'Missing required parameters: appName, metricName, from, to' 
+            return res.status(400).json({
+                error: 'Missing required parameters: appName, metricName, from, to'
             });
         }
 
         const query = `
-            SELECT 
+            SELECT
                 time_bucket($1, time) AS bucket,
                 app_name,
                 metric_name,
@@ -103,16 +103,18 @@ router.get('/timeseries', async (req: Request, res: Response) => {
                 MIN(value) as min_value,
                 COUNT(*) as count
             FROM metrics
-            WHERE app_name = $2
-              AND metric_name = $3
-              AND time >= to_timestamp($4)
-              AND time <= to_timestamp($5)
+            WHERE tenant_id = $2
+              AND app_name = $3
+              AND metric_name = $4
+              AND time >= to_timestamp($5)
+              AND time <= to_timestamp($6)
             GROUP BY bucket, app_name, metric_name
             ORDER BY bucket ASC
         `;
 
         const result = await pool.query(query, [
             interval,
+            req.user!.tenantId,
             appName,
             metricName,
             Number(from) / 1000,
@@ -145,11 +147,12 @@ router.get('/names', async (req: Request, res: Response) => {
         let query = `
             SELECT DISTINCT metric_name, metric_type
             FROM metrics
+            WHERE tenant_id = $1
         `;
-        const params: any[] = [];
+        const params: any[] = [req.user!.tenantId];
 
         if (appName) {
-            query += ` WHERE app_name = $1`;
+            query += ` AND app_name = $2`;
             params.push(appName);
         }
 
@@ -182,11 +185,12 @@ router.get('/latest', async (req: Request, res: Response) => {
                 value,
                 labels
             FROM metrics
+            WHERE tenant_id = $1
         `;
-        const params: any[] = [];
+        const params: any[] = [req.user!.tenantId];
 
         if (appName) {
-            query += ` WHERE app_name = $1`;
+            query += ` AND app_name = $2`;
             params.push(appName);
         }
 

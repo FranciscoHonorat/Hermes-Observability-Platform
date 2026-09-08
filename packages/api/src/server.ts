@@ -12,12 +12,17 @@ import { anomaliesRouter } from './routes/anomalies';
 import { recommendationsRouter } from './routes/recommendations';
 import { errorHandler } from './middleware/errorHandler';
 import { config } from './config';
-import { Logger } from '@hermes/shared';
+import { Logger, authenticate } from '@hermes/shared';
 
 const logger = new Logger('Server');
 
 export function createServer(): Application {
     const app = express();
+
+    // Behind nginx (docker/nginx.conf) in every deployment — trust its
+    // X-Forwarded-For so express-rate-limit keys by the real client IP
+    // instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+    app.set('trust proxy', 1);
 
     // Security headers
     app.use(helmet());
@@ -122,6 +127,12 @@ export function createServer(): Application {
             }
         });
     });
+
+    // Every route below requires an authenticated session — previously
+    // only mutations needed a token, but now every read needs tenant
+    // identity too, so this is centralized here instead of per-route like
+    // the old adminAuth. See docs/adr/0002-*.md.
+    app.use('/api/v1', authenticate);
 
     // API Routes
     app.use('/api/v1/metrics', metricsRouter);

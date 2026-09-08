@@ -3,6 +3,7 @@ import axios from 'axios';
 const apiClient = axios.create({
   baseURL: '/api',
   timeout: 10000,
+  withCredentials: true, // sends the httpOnly session cookie set by /api/v1/auth
   headers: {
     'Content-Type': 'application/json'
   }
@@ -13,6 +14,26 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
+// packages/users and packages/admin are separate services, reachable at
+// /api/v1/auth and /api/v1/admin (see docker/nginx.conf) rather than
+// through the /api shorthand apiClient uses for the main data API.
+const authAdminClient = axios.create({
+  baseURL: '/api/v1',
+  timeout: 10000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+authAdminClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Auth/Admin API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
@@ -297,6 +318,91 @@ export const recommendationsApi = {
   updateStatus: async (id: number, status: Recommendation['status']) => {
     const response = await apiClient.put<Recommendation>(`/recommendations/${id}`, { status });
     return response.data;
+  }
+};
+
+export interface CurrentUser {
+  id: number;
+  tenant_id: number;
+  email: string;
+  role: 'admin' | 'viewer';
+  created_at: string;
+  tenant_name: string;
+  tenant_slug: string;
+}
+
+export interface AdminUser {
+  id: number;
+  tenant_id: number;
+  email: string;
+  role: 'admin' | 'viewer';
+  created_at: string;
+}
+
+export interface ApiKeyRecord {
+  id: number;
+  tenant_id: number;
+  label: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  key?: string; // present only in the response right after creation
+}
+
+// Auth API — packages/users
+export const authApi = {
+  signup: async (tenantName: string, email: string, password: string) => {
+    const response = await authAdminClient.post('/auth/signup', { tenantName, email, password });
+    return response.data;
+  },
+
+  login: async (tenantSlug: string, email: string, password: string) => {
+    const response = await authAdminClient.post('/auth/login', { tenantSlug, email, password });
+    return response.data;
+  },
+
+  logout: async () => {
+    await authAdminClient.post('/auth/logout');
+  },
+
+  getMe: async (): Promise<CurrentUser> => {
+    const response = await authAdminClient.get<CurrentUser>('/auth/me');
+    return response.data;
+  }
+};
+
+// Admin API — packages/admin (tenant-admin-only)
+export const adminApi = {
+  getUsers: async () => {
+    const response = await authAdminClient.get<{ users: AdminUser[]; count: number }>('/admin/users');
+    return response.data.users;
+  },
+
+  createUser: async (email: string, password: string, role: 'admin' | 'viewer') => {
+    const response = await authAdminClient.post<AdminUser>('/admin/users', { email, password, role });
+    return response.data;
+  },
+
+  updateUserRole: async (id: number, role: 'admin' | 'viewer') => {
+    const response = await authAdminClient.put<AdminUser>(`/admin/users/${id}/role`, { role });
+    return response.data;
+  },
+
+  deleteUser: async (id: number) => {
+    await authAdminClient.delete(`/admin/users/${id}`);
+  },
+
+  getApiKeys: async () => {
+    const response = await authAdminClient.get<{ apiKeys: ApiKeyRecord[]; count: number }>('/admin/api-keys');
+    return response.data.apiKeys;
+  },
+
+  createApiKey: async (label?: string) => {
+    const response = await authAdminClient.post<ApiKeyRecord>('/admin/api-keys', { label });
+    return response.data;
+  },
+
+  revokeApiKey: async (id: number) => {
+    await authAdminClient.delete(`/admin/api-keys/${id}`);
   }
 };
 

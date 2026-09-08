@@ -8,6 +8,10 @@ export const REDIS_METRICS_STREAM = 'hermes:metrics:stream';
 export const REDIS_TRACES_STREAM = 'hermes:traces:stream';
 export const REDIS_LOGS_STREAM = 'hermes:logs:stream';
 
+// Hash of api_keys.key_hash -> tenant_id, written by packages/admin,
+// read by packages/collector's apiKeyAuth. See docs/adr/0002-*.md.
+export const REDIS_API_KEYS_HASH = 'hermes:apikeys';
+
 export const METRIC_NAMES = {
   CPU_USAGE: 'system.cpu.usage',
   MEMORY_USAGE: 'system.memory.usage',

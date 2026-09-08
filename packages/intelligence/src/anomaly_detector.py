@@ -83,7 +83,7 @@ def _series_pairs(conn) -> list[dict]:
     return query(
         conn,
         """
-        SELECT DISTINCT app_name, metric_name
+        SELECT DISTINCT tenant_id, app_name, metric_name
         FROM metrics_1min
         WHERE bucket >= NOW() - (%s::text || ' hours')::interval
         """,
@@ -91,27 +91,28 @@ def _series_pairs(conn) -> list[dict]:
     )
 
 
-def _series(conn, app_name: str, metric_name: str) -> list[dict]:
+def _series(conn, tenant_id: int, app_name: str, metric_name: str) -> list[dict]:
     return query(
         conn,
         """
         SELECT bucket, avg_value
         FROM metrics_1min
-        WHERE app_name = %s AND metric_name = %s
+        WHERE tenant_id = %s AND app_name = %s AND metric_name = %s
           AND bucket >= NOW() - (%s::text || ' hours')::interval
         ORDER BY bucket ASC
         """,
-        (app_name, metric_name, config.anomaly_lookback_hours),
+        (tenant_id, app_name, metric_name, config.anomaly_lookback_hours),
     )
 
 
 def run_anomaly_sweep(conn) -> int:
-    """Runs one detection pass across every (app_name, metric_name) pair
-    with recent data. Returns the number of new anomalies written."""
+    """Runs one detection pass across every (tenant_id, app_name,
+    metric_name) triple with recent data. Returns the number of new
+    anomalies written."""
     written = 0
     for pair in _series_pairs(conn):
-        app_name, metric_name = pair["app_name"], pair["metric_name"]
-        rows = _series(conn, app_name, metric_name)
+        tenant_id, app_name, metric_name = pair["tenant_id"], pair["app_name"], pair["metric_name"]
+        rows = _series(conn, tenant_id, app_name, metric_name)
         if len(rows) < config.anomaly_min_samples:
             continue
 
@@ -135,12 +136,13 @@ def run_anomaly_sweep(conn) -> int:
                     conn,
                     """
                     INSERT INTO anomalies
-                        (time, app_name, metric_name, value, expected_value, anomaly_score, severity, algorithm)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'isolation_forest')
-                    ON CONFLICT (app_name, metric_name, time) DO NOTHING
+                        (time, tenant_id, app_name, metric_name, value, expected_value, anomaly_score, severity, algorithm)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'isolation_forest')
+                    ON CONFLICT (tenant_id, app_name, metric_name, time) DO NOTHING
                     """,
                     (
                         bucket_time,
+                        tenant_id,
                         app_name,
                         metric_name,
                         anomaly.value,
@@ -152,7 +154,7 @@ def run_anomaly_sweep(conn) -> int:
                 written += 1
             except Exception:
                 logger.exception(
-                    "Failed to write anomaly for %s/%s at %s", app_name, metric_name, bucket_time
+                    "Failed to write anomaly for tenant %s %s/%s at %s", tenant_id, app_name, metric_name, bucket_time
                 )
 
     logger.info("Anomaly sweep complete: %d new anomalies", written)

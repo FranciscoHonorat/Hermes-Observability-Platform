@@ -52,10 +52,10 @@ services:
       REDIS_PORT: 6379
       COLLECTOR_PORT: 4000
       NODE_ENV: development
-      # Comma-separated API keys instrumented apps must send as x-api-key.
-      # Left empty here so local dev works unauthenticated; set it (and
-      # HERMES_API_KEY on the agent) to test the auth path locally.
-      COLLECTOR_API_KEYS: ""
+      # No key configured -> unauthenticated dev requests are attributed to
+      # the fixed "default" tenant (id=1, seeded by docker/init-db.sql).
+      # Generate a real per-tenant key via the Admin UI (packages/admin) to
+      # test the auth path locally. See docs/adr/0002-*.md.
       # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
@@ -81,6 +81,63 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
+  # Hermes Users (self-service signup/login/logout/me)
+  users:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.users
+    container_name: hermes-users
+    ports:
+      - "4001:4001"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      USERS_PORT: 4001
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      # Dev-only secret signing every session JWT. Never reuse this value
+      # outside this file — every service that verifies a token (api, admin,
+      # users) must share the exact same secret. See docs/adr/0002-*.md.
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
+  # Hermes Admin (tenant-admin-only: manage users, manage Collector API keys)
+  admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admin
+    container_name: hermes-admin
+    ports:
+      - "4002:4002"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_PORT: 4002
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,9 +186,9 @@ services:
       API_PORT: 3000
       NODE_ENV: development
       CORS_ORIGIN: "http://localhost:3001"
-      # Bearer token required on POST/PUT/DELETE /api/v1/alerts. Left empty
-      # here so local dev works unauthenticated; set it to test the auth path.
-      API_ADMIN_TOKEN: ""
+      # Same secret as users/admin — verifies the session cookie they issue.
+      # See docs/adr/0002-*.md.
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
       # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
@@ -154,10 +211,10 @@ services:
       - "3001:80"
     environment:
       VITE_API_URL: http://localhost:3000
-      # Injected server-side into nginx's proxy — see docker/nginx.conf.
-      API_ADMIN_TOKEN: ""
     depends_on:
       - api
+      - users
+      - admin
     networks:
       - hermes-network
     restart: unless-stopped

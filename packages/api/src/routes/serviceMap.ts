@@ -25,14 +25,17 @@ router.get('/', async (req: Request, res: Response) => {
             JOIN spans parent
                 ON parent.span_id = child.parent_span_id
                AND parent.trace_id = child.trace_id
-            WHERE parent.service_name != child.service_name
-              AND ($1::timestamptz IS NULL OR child.start_time >= $1)
-              AND ($2::timestamptz IS NULL OR child.start_time <= $2)
+               AND parent.tenant_id = child.tenant_id
+            WHERE child.tenant_id = $1
+              AND parent.service_name != child.service_name
+              AND ($2::timestamptz IS NULL OR child.start_time >= $2)
+              AND ($3::timestamptz IS NULL OR child.start_time <= $3)
             GROUP BY parent.service_name, child.service_name
             ORDER BY call_count DESC
         `;
 
         const params = [
+            req.user!.tenantId,
             from ? new Date(Number(from)) : null,
             to ? new Date(Number(to)) : null
         ];

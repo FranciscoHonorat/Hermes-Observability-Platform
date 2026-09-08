@@ -7,18 +7,26 @@ vi.mock('../database', () => ({
 
 import { createServer } from '../server';
 import { pool } from '../database';
+import { adminToken } from '../testUtils/auth';
 
 const app = createServer();
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
+const auth = () => `Bearer ${adminToken()}`;
 
 beforeEach(() => {
   query.mockReset();
 });
 
 describe('GET /api/v1/service-map', () => {
-  it('does not require a token for reads', async () => {
-    query.mockResolvedValueOnce({ rows: [] });
+  it('rejects requests without a session', async () => {
     const res = await request(app).get('/api/v1/service-map');
+    expect(res.status).toBe(401);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('returns the map for an authenticated request', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/v1/service-map').set('Authorization', auth());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ nodes: [], edges: [] });
   });
@@ -34,7 +42,7 @@ describe('GET /api/v1/service-map', () => {
       }]
     });
 
-    const res = await request(app).get('/api/v1/service-map');
+    const res = await request(app).get('/api/v1/service-map').set('Authorization', auth());
 
     expect(res.status).toBe(200);
     expect(res.body.edges).toEqual([{
@@ -68,7 +76,7 @@ describe('GET /api/v1/service-map', () => {
       ]
     });
 
-    const res = await request(app).get('/api/v1/service-map');
+    const res = await request(app).get('/api/v1/service-map').set('Authorization', auth());
 
     expect(res.body.nodes).toContainEqual({
       serviceName: 'inventory-service',

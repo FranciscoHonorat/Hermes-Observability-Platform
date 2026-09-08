@@ -19,6 +19,7 @@ function escapeHtml(value: unknown): string {
 
 interface AlertRule {
     id: number;
+    tenant_id: number;
     name: string;
     description: string;
     metric_name: string;
@@ -59,7 +60,7 @@ async function checkAlerts(): Promise<void> {
     try {
         // Buscar todas as regras de alerta ativas
         const rulesResult = await pool.query<AlertRule>(
-            `SELECT id, name, description, metric_name, condition, 
+            `SELECT id, tenant_id, name, description, metric_name, condition,
                     threshold, app_name, email_recipients, enabled
              FROM alert_rules
              WHERE enabled = true`
@@ -79,18 +80,18 @@ async function checkAlerts(): Promise<void> {
 
 async function evaluateRule(rule: AlertRule): Promise<void> {
     try {
-        // Buscar o valor mais recente da métrica
+        // Buscar o valor mais recente da métrica (dentro do tenant da regra)
         const query = rule.app_name
             ? `SELECT value, time, app_name FROM metrics
-               WHERE metric_name = $1 AND app_name = $2
+               WHERE tenant_id = $1 AND metric_name = $2 AND app_name = $3
                ORDER BY time DESC LIMIT 1`
             : `SELECT value, time, app_name FROM metrics
-               WHERE metric_name = $1
+               WHERE tenant_id = $1 AND metric_name = $2
                ORDER BY time DESC LIMIT 1`;
 
-        const params = rule.app_name 
-            ? [rule.metric_name, rule.app_name]
-            : [rule.metric_name];
+        const params = rule.app_name
+            ? [rule.tenant_id, rule.metric_name, rule.app_name]
+            : [rule.tenant_id, rule.metric_name];
 
         const result = await pool.query(query, params);
 
@@ -124,7 +125,7 @@ async function evaluateRule(rule: AlertRule): Promise<void> {
             await sendNotification(rule, metric, currentValue);
 
             // Registrar alerta no banco
-            await recordAlert(rule.id, metric.app_name, currentValue);
+            await recordAlert(rule.tenant_id, rule.id, metric.app_name, currentValue);
 
             // Atualizar estado
             alertStates.set(rule.id, {
@@ -195,15 +196,16 @@ async function sendNotification(
 }
 
 async function recordAlert(
-    ruleId: number, 
-    appName: string, 
+    tenantId: number,
+    ruleId: number,
+    appName: string,
     value: number
 ): Promise<void> {
     try {
         await pool.query(
-            `INSERT INTO alert_history (alert_rule_id, app_name, triggered_at, metric_value)
-             VALUES ($1, $2, NOW(), $3)`,
-            [ruleId, appName, value]
+            `INSERT INTO alert_history (tenant_id, alert_rule_id, app_name, triggered_at, metric_value)
+             VALUES ($1, $2, $3, NOW(), $4)`,
+            [tenantId, ruleId, appName, value]
         );
     } catch (error) {
         logger.error('Erro ao registrar histórico de alerta:', error);

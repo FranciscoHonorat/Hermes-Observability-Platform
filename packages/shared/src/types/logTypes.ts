@@ -12,6 +12,8 @@ export interface LogEntry {
   level: LogEntryLevel;
   message: string;
   timestamp: number;      // epoch ms
+  // Set server-side by the Collector's apiKeyAuth — see docs/adr/0002-*.md.
+  tenantId?: number;
   traceId?: string;       // correlates with a Span, if logged inside one
   spanId?: string;
   attributes?: Record<string, string | number | boolean>;

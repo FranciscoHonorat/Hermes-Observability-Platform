@@ -25,17 +25,18 @@ router.get('/', async (req: Request, res: Response) => {
                     COUNT(*) AS span_count,
                     bool_or(status = 'error') AS has_error
                 FROM spans
-                WHERE ($1::text IS NULL OR service_name = $1)
-                  AND ($2::timestamptz IS NULL OR start_time >= $2)
-                  AND ($3::timestamptz IS NULL OR start_time <= $3)
+                WHERE tenant_id = $1
+                  AND ($2::text IS NULL OR service_name = $2)
+                  AND ($3::timestamptz IS NULL OR start_time >= $3)
+                  AND ($4::timestamptz IS NULL OR start_time <= $4)
                 GROUP BY trace_id
                 ORDER BY trace_start DESC
-                LIMIT $4 OFFSET $5
+                LIMIT $5 OFFSET $6
             ),
             roots AS (
                 SELECT DISTINCT ON (trace_id) trace_id, service_name, operation_name
                 FROM spans
-                WHERE parent_span_id IS NULL
+                WHERE parent_span_id IS NULL AND tenant_id = $1
                 ORDER BY trace_id, start_time ASC
             )
             SELECT
@@ -52,6 +53,7 @@ router.get('/', async (req: Request, res: Response) => {
         `;
 
         const params = [
+            req.user!.tenantId,
             serviceName ?? null,
             from ? new Date(Number(from)) : null,
             to ? new Date(Number(to)) : null,
@@ -101,11 +103,11 @@ router.get('/:traceId', async (req: Request, res: Response) => {
                 status,
                 attributes
             FROM spans
-            WHERE trace_id = $1
+            WHERE trace_id = $1 AND tenant_id = $2
             ORDER BY start_time ASC
         `;
 
-        const result = await pool.query(query, [traceId]);
+        const result = await pool.query(query, [traceId, req.user!.tenantId]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Trace not found' });

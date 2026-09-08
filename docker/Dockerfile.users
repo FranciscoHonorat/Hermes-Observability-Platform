@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/users/package*.json ./packages/users/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY packages/users ./packages/users
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+
+# Build shared first
+RUN npm run build --workspace=packages/shared
+RUN npm run build --workspace=packages/users
+
+RUN chown -R node:node /app
+USER node
+
+EXPOSE 4001
+
+CMD ["node", "packages/users/dist/index.js"]

@@ -7,18 +7,26 @@ vi.mock('../database', () => ({
 
 import { createServer } from '../server';
 import { pool } from '../database';
+import { adminToken } from '../testUtils/auth';
 
 const app = createServer();
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
+const auth = () => `Bearer ${adminToken()}`;
 
 beforeEach(() => {
   query.mockReset();
 });
 
 describe('GET /api/v1/logs', () => {
-  it('does not require a token for reads', async () => {
-    query.mockResolvedValueOnce({ rows: [] });
+  it('rejects requests without a session', async () => {
     const res = await request(app).get('/api/v1/logs');
+    expect(res.status).toBe(401);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('returns logs for an authenticated request', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/v1/logs').set('Authorization', auth());
     expect(res.status).toBe(200);
     expect(res.body.logs).toEqual([]);
   });
@@ -37,7 +45,7 @@ describe('GET /api/v1/logs', () => {
       }]
     });
 
-    const res = await request(app).get('/api/v1/logs');
+    const res = await request(app).get('/api/v1/logs').set('Authorization', auth());
 
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(1);
@@ -54,12 +62,19 @@ describe('GET /api/v1/logs', () => {
 
   it('passes the search param through to the query (trigram substring match)', async () => {
     query.mockResolvedValueOnce({ rows: [] });
-    const res = await request(app).get('/api/v1/logs?search=timeout');
+    const res = await request(app).get('/api/v1/logs?search=timeout').set('Authorization', auth());
 
     expect(res.status).toBe(200);
     expect(query).toHaveBeenCalledTimes(1);
     const [, params] = query.mock.calls[0];
     expect(params).toContain('timeout');
+  });
+
+  it('scopes the query to the caller\'s tenant', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await request(app).get('/api/v1/logs').set('Authorization', auth());
+    const [, params] = query.mock.calls[0];
+    expect(params[0]).toBe(1); // TEST_TENANT_ID
   });
 
   it('a row without a traceId omits it rather than sending null', async () => {
@@ -75,7 +90,7 @@ describe('GET /api/v1/logs', () => {
       }]
     });
 
-    const res = await request(app).get('/api/v1/logs');
+    const res = await request(app).get('/api/v1/logs').set('Authorization', auth());
     expect(res.body.logs[0].traceId).toBeUndefined();
   });
 });
