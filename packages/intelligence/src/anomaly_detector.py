@@ -18,9 +18,15 @@ from .db import execute, query
 
 logger = logging.getLogger("intelligence.anomaly_detector")
 
-# decision_function score below this is 'critical' rather than 'warning'.
-# More negative = more anomalous (see sklearn's IsolationForest docs).
-CRITICAL_SCORE_THRESHOLD = -0.15
+# |value - baseline_mean| / baseline_std beyond this is 'critical' rather
+# than 'warning'. Severity is graded this way, not from IsolationForest's
+# own decision_function score, because that score saturates for a single
+# (univariate) feature: once a point falls outside the range the model was
+# trained on, every split in every tree routes it the same way regardless
+# of *how far* outside it is, so a barely-outlying point and a wildly-
+# outlying point end up with the same score. The z-score against the
+# baseline's own distribution doesn't have that ceiling.
+CRITICAL_ZSCORE_THRESHOLD = 5.0
 
 
 @dataclass
@@ -44,9 +50,11 @@ def detect_anomalies(
     if len(baseline_values) < min_samples or not recent_values:
         return []
 
-    expected_value = float(np.mean(baseline_values))
+    baseline_arr_flat = np.array(baseline_values, dtype=float)
+    expected_value = float(baseline_arr_flat.mean())
+    baseline_std = float(baseline_arr_flat.std())
 
-    baseline_arr = np.array(baseline_values, dtype=float).reshape(-1, 1)
+    baseline_arr = baseline_arr_flat.reshape(-1, 1)
     model = IsolationForest(contamination=contamination, random_state=42)
     model.fit(baseline_arr)
 
@@ -57,7 +65,8 @@ def detect_anomalies(
     results: list[AnomalyResult] = []
     for i, (pred, score, value) in enumerate(zip(predictions, scores, recent_values)):
         if pred == -1:
-            severity = "critical" if score < CRITICAL_SCORE_THRESHOLD else "warning"
+            zscore = abs(value - expected_value) / baseline_std if baseline_std > 0 else float("inf")
+            severity = "critical" if zscore > CRITICAL_ZSCORE_THRESHOLD else "warning"
             results.append(
                 AnomalyResult(
                     index=i,
