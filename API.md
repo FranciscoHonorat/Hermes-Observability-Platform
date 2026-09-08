@@ -22,6 +22,7 @@ Complete REST API reference for the Hermes Observability Platform.
 - [Applications Endpoints](#applications-endpoints)
 - [Traces Endpoints](#traces-endpoints)
 - [Logs Endpoints](#logs-endpoints)
+- [Service Map Endpoint](#service-map-endpoint)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
 
@@ -728,6 +729,43 @@ curl "http://localhost:3000/api/v1/logs?level=error&search=timeout&limit=50"
 ```
 
 There is no single-entry "get" endpoint — a log line is never "not found," only absent from a filtered list (`200` with `logs: []`).
+
+---
+
+## Service Map Endpoint
+
+Which services call which, derived from `spans` (a cross-service dependency edge is a parent/child span pair where the service differs — same-service parent/child spans are internal call structure, already shown in the trace waterfall, not a dependency). No separate ingestion — this is a read over trace data you're already sending.
+
+**Endpoint:** `GET /api/v1/service-map`
+
+**Query Parameters:**
+
+| Parameter | Type   | Required | Description       |
+|-----------|--------|----------|--------------------|
+| `from`    | number | No       | Start of range, epoch ms |
+| `to`      | number | No       | End of range, epoch ms   |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/service-map?from=1788820000000&to=1788830000000"
+```
+
+**Example Response:**
+
+```json
+{
+  "nodes": [
+    { "serviceName": "checkout-api", "callCount": 0, "errorCount": 0, "errorRate": 0 },
+    { "serviceName": "payment-service", "callCount": 5, "errorCount": 2, "errorRate": 0.4 }
+  ],
+  "edges": [
+    { "source": "checkout-api", "target": "payment-service", "callCount": 5, "errorCount": 2, "avgDurationMs": 80.5 }
+  ]
+}
+```
+
+`callCount`/`errorCount`/`errorRate` on a node are its **incoming** call stats (as a callee) — a pure caller with no incoming cross-service calls shows zeros, which is correct, not missing data.
 
 ---
 

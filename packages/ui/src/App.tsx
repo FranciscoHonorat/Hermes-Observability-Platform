@@ -5,6 +5,7 @@ import Applications from './pages/Applications';
 import Traces from './pages/Traces';
 import TraceDetail from './pages/TraceDetail';
 import Logs from './pages/Logs';
+import ServiceMap from './pages/ServiceMap';
 
 function App() {
   return (
@@ -37,6 +38,12 @@ function App() {
                     Traces
                   </Link>
                   <Link
+                    to="/service-map"
+                    className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Service Map
+                  </Link>
+                  <Link
                     to="/logs"
                     className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
                   >
@@ -60,6 +67,7 @@ function App() {
             <Route path="/applications" element={<Applications />} />
             <Route path="/traces" element={<Traces />} />
             <Route path="/traces/:traceId" element={<TraceDetail />} />
+            <Route path="/service-map" element={<ServiceMap />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/alerts" element={<Alerts />} />
           </Routes>

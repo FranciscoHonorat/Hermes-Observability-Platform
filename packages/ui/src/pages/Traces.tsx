@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { tracesApi, applicationsApi, Trace } from '../api/client';
 import Card from '../components/Card';
 import TimeRangeSelector, { timeRanges } from '../components/TimeRangeSelector';
@@ -8,8 +8,11 @@ import ErrorMessage from '../components/ErrorMessage';
 import { format, subHours, subDays } from 'date-fns';
 
 const Traces = () => {
+  // Pre-selects the service filter when arriving from a link that names one
+  // (e.g. ServiceGraph's node click, /traces?service=payment-service).
+  const [searchParams] = useSearchParams();
   const [timeRange, setTimeRange] = useState('1h');
-  const [selectedService, setSelectedService] = useState<string>('');
+  const [selectedService, setSelectedService] = useState<string>(searchParams.get('service') || '');
   const [services, setServices] = useState<string[]>([]);
   const [traces, setTraces] = useState<Trace[]>([]);
   const [loading, setLoading] = useState(true);

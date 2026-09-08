@@ -102,6 +102,21 @@ export interface LogEntry {
   attributes?: Record<string, string | number | boolean>;
 }
 
+export interface ServiceMapNode {
+  serviceName: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+export interface ServiceMapEdge {
+  source: string;
+  target: string;
+  callCount: number;
+  errorCount: number;
+  avgDurationMs: number;
+}
+
 // Metrics API
 export const metricsApi = {
   getMetrics: async (params?: {
@@ -221,6 +236,18 @@ export const logsApi = {
     };
     const response = await apiClient.get<{ logs: LogEntry[]; count: number }>('/logs', { params: queryParams });
     return response.data.logs;
+  }
+};
+
+// Service Map API
+export const serviceMapApi = {
+  getServiceMap: async (params?: { startTime?: string; endTime?: string }) => {
+    const queryParams = {
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined
+    };
+    const response = await apiClient.get<{ nodes: ServiceMapNode[]; edges: ServiceMapEdge[] }>('/service-map', { params: queryParams });
+    return response.data;
   }
 };
 

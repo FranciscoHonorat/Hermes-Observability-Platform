@@ -403,6 +403,12 @@ curl -X POST http://localhost:3030/api/simulator/start
 - ✅ **Substring search**: `pg_trgm`-indexed, so `ILIKE '%text%'` against stack traces/error codes stays fast
 - ✅ **API**: `GET /api/v1/logs?appName=&level=&search=&traceId=` — see [API.md](API.md#logs-endpoints)
 
+### 🗺️ Service Dependency Map
+- ✅ **Zero extra instrumentation**: derived entirely from existing `spans` data — a cross-service parent/child span pair *is* a dependency edge
+- ✅ **Layered graph view**: services laid out by call depth, node size/color by traffic and error rate
+- ✅ **Cross-linked**: click a service to jump to its filtered trace list
+- ✅ **API**: `GET /api/v1/service-map?from=&to=` — see [API.md](API.md#service-map-endpoint)
+
 ### 📊 Dashboard (UI)
 - ✅ Real-time visualization with Chart.js
 - ✅ Time range selection (15min, 1h, 6h, 24h, 7d, 30d)
