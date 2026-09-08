@@ -8,6 +8,8 @@ import { alertsRouter } from './routes/alerts';
 import { tracesRouter } from './routes/traces';
 import { logsRouter } from './routes/logs';
 import { serviceMapRouter } from './routes/serviceMap';
+import { anomaliesRouter } from './routes/anomalies';
+import { recommendationsRouter } from './routes/recommendations';
 import { errorHandler } from './middleware/errorHandler';
 import { config } from './config';
 import { Logger } from '@hermes/shared';
@@ -74,7 +76,9 @@ export function createServer(): Application {
                 alerts: '/api/v1/alerts',
                 traces: '/api/v1/traces',
                 logs: '/api/v1/logs',
-                serviceMap: '/api/v1/service-map'
+                serviceMap: '/api/v1/service-map',
+                anomalies: '/api/v1/anomalies',
+                recommendations: '/api/v1/recommendations'
             },
             documentation: {
                 metrics: {
@@ -105,6 +109,15 @@ export function createServer(): Application {
                 },
                 serviceMap: {
                     get: 'GET /api/v1/service-map?from=&to='
+                },
+                anomalies: {
+                    list: 'GET /api/v1/anomalies?appName=&metricName=&severity=&from=&to=&limit=',
+                    get: 'GET /api/v1/anomalies/:id'
+                },
+                recommendations: {
+                    list: 'GET /api/v1/recommendations?appName=&status=&category=',
+                    get: 'GET /api/v1/recommendations/:id',
+                    update: 'PUT /api/v1/recommendations/:id'
                 }
             }
         });
@@ -117,6 +130,8 @@ export function createServer(): Application {
     app.use('/api/v1/traces', tracesRouter);
     app.use('/api/v1/logs', logsRouter);
     app.use('/api/v1/service-map', serviceMapRouter);
+    app.use('/api/v1/anomalies', anomaliesRouter);
+    app.use('/api/v1/recommendations', recommendationsRouter);
 
     // 404 handler
     app.use((req: Request, res: Response) => {

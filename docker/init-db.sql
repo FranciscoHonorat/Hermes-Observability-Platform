@@ -121,6 +121,47 @@ CREATE INDEX IF NOT EXISTS idx_logs_level ON logs (level, time DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs (trace_id) WHERE trace_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm ON logs USING GIN (message gin_trgm_ops);
 
+-- Anomalies detected by packages/intelligence's periodic sweep. One row per
+-- distinct anomalous (app_name, metric_name, time) data point — event
+-- volume, not raw-signal volume, so a plain table (like alert_history)
+-- rather than a hypertable.
+CREATE TABLE IF NOT EXISTS anomalies (
+    id SERIAL PRIMARY KEY,
+    time TIMESTAMPTZ NOT NULL,           -- timestamp of the anomalous bucket
+    app_name VARCHAR(255) NOT NULL,
+    metric_name VARCHAR(255) NOT NULL,
+    value DOUBLE PRECISION NOT NULL,
+    expected_value DOUBLE PRECISION,     -- rolling baseline mean at that point
+    anomaly_score DOUBLE PRECISION NOT NULL, -- IsolationForest decision_function; more negative = more anomalous
+    severity VARCHAR(20) NOT NULL DEFAULT 'warning', -- warning, critical
+    algorithm VARCHAR(50) NOT NULL DEFAULT 'isolation_forest',
+    detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    metadata JSONB,
+    CONSTRAINT anomalies_unique UNIQUE (app_name, metric_name, time)
+);
+CREATE INDEX IF NOT EXISTS idx_anomalies_app_time ON anomalies (app_name, time DESC);
+CREATE INDEX IF NOT EXISTS idx_anomalies_metric ON anomalies (metric_name, time DESC);
+
+-- Performance recommendations synthesized from anomalies + span aggregates
+-- (packages/intelligence/src/recommendations.py). Rule-based, not ML —
+-- deliberately explainable, see docs/adr/0001-*.md.
+CREATE TABLE IF NOT EXISTS recommendations (
+    id SERIAL PRIMARY KEY,
+    app_name VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,        -- latency, error_rate, resource
+    severity VARCHAR(20) NOT NULL DEFAULT 'info', -- info, warning, critical
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    related_metric_name VARCHAR(255),
+    related_operation_name VARCHAR(255),
+    evidence JSONB,                       -- numbers backing the recommendation (p95s, anomaly ids, etc.)
+    status VARCHAR(20) NOT NULL DEFAULT 'open', -- open, acknowledged, dismissed
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_recommendations_app ON recommendations (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recommendations_status ON recommendations (status, created_at DESC);
+
 -- Retention policy: keep data for 30 days
 SELECT add_retention_policy('metrics', INTERVAL '30 days', if_not_exists => TRUE);
 SELECT add_retention_policy('spans', INTERVAL '30 days', if_not_exists => TRUE);

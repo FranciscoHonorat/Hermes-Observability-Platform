@@ -23,6 +23,12 @@ Complete REST API reference for the Hermes Observability Platform.
 - [Traces Endpoints](#traces-endpoints)
 - [Logs Endpoints](#logs-endpoints)
 - [Service Map Endpoint](#service-map-endpoint)
+- [Anomalies Endpoints](#anomalies-endpoints)
+  - [List Anomalies](#list-anomalies)
+  - [Get Anomaly Details](#get-anomaly-details)
+- [Recommendations Endpoints](#recommendations-endpoints)
+  - [List Recommendations](#list-recommendations)
+  - [Update Recommendation Status](#update-recommendation-status)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
 
@@ -766,6 +772,125 @@ curl "http://localhost:3000/api/v1/service-map?from=1788820000000&to=17888300000
 ```
 
 `callCount`/`errorCount`/`errorRate` on a node are its **incoming** call stats (as a callee) — a pure caller with no incoming cross-service calls shows zeros, which is correct, not missing data.
+
+---
+
+## Anomalies Endpoints
+
+Written by `packages/intelligence`'s periodic sweep (see [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)), not user-editable — no auth required on these reads.
+
+### List Anomalies
+
+**Endpoint:** `GET /api/v1/anomalies`
+
+**Query Parameters:**
+
+| Parameter    | Type   | Required | Description                       | Example        |
+|--------------|--------|----------|------------------------------------|-----------------|
+| `appName`    | string | No       | Filter by application              | `api-gateway`   |
+| `metricName` | string | No       | Filter by metric                   | `system.cpu.usage` |
+| `severity`   | string | No       | `warning` or `critical`            | `critical`      |
+| `from`       | number | No       | Start of range, epoch ms           |                 |
+| `to`         | number | No       | End of range, epoch ms             |                 |
+| `limit`      | number | No       | Max rows (default 100)             | `50`            |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/anomalies?appName=api-gateway&severity=critical"
+```
+
+**Example Response:**
+
+```json
+{
+  "anomalies": [
+    {
+      "id": 1,
+      "time": "2026-09-08T03:10:00.000Z",
+      "app_name": "api-gateway",
+      "metric_name": "system.cpu.usage",
+      "value": 97.4,
+      "expected_value": 12.1,
+      "anomaly_score": -0.21,
+      "severity": "critical",
+      "algorithm": "isolation_forest",
+      "detected_at": "2026-09-08T03:15:03.221Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### Get Anomaly Details
+
+**Endpoint:** `GET /api/v1/anomalies/:id`
+
+```bash
+curl "http://localhost:3000/api/v1/anomalies/1"
+```
+
+---
+
+## Recommendations Endpoints
+
+### List Recommendations
+
+**Endpoint:** `GET /api/v1/recommendations`
+
+**Query Parameters:**
+
+| Parameter  | Type   | Required | Description                              | Example   |
+|------------|--------|----------|-------------------------------------------|-----------|
+| `appName`  | string | No       | Filter by application                     |           |
+| `status`   | string | No       | `open`, `acknowledged`, or `dismissed`    | `open`    |
+| `category` | string | No       | `latency`, `error_rate`, or `resource`    | `latency` |
+
+**Example Response:**
+
+```json
+{
+  "recommendations": [
+    {
+      "id": 1,
+      "app_name": "api-gateway",
+      "category": "latency",
+      "severity": "warning",
+      "title": "Latency regression on GET /api/v1/movies",
+      "description": "p95 latency for GET /api/v1/movies is 420.3ms in the last hour, more than 2.0x its 24h baseline of 180.1ms.",
+      "related_operation_name": "GET /api/v1/movies",
+      "evidence": { "current_p95_ms": 420.3, "baseline_p95_ms": 180.1, "samples": 42 },
+      "status": "open",
+      "created_at": "2026-09-08T03:15:03.221Z",
+      "updated_at": "2026-09-08T03:15:03.221Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### Update Recommendation Status
+
+Acknowledge or dismiss a recommendation. Requires the admin bearer token, same as the mutating alert endpoints.
+
+**Endpoint:** `PUT /api/v1/recommendations/:id`
+
+**Body:**
+
+```json
+{ "status": "acknowledged" }
+```
+
+```bash
+curl -X PUT "http://localhost:3000/api/v1/recommendations/1" \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "acknowledged"}'
+```
 
 ---
 

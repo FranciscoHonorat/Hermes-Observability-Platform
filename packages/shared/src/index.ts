@@ -13,6 +13,12 @@ export * from './types/traceTypes';
 // Types - Logs
 export * from './types/logTypes';
 
+// Types - Anomalias
+export * from './types/anomalyTypes';
+
+// Types - Recomendações
+export * from './types/recommendationTypes';
+
 // Utilities - Validação
 export * from './utilities/validationUtilities';
 

@@ -2,7 +2,7 @@
  * Validation utilities
  */
 
-import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus, LogEntry, LogEntryLevel } from '../types';
+import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus, LogEntry, LogEntryLevel, RecommendationStatus, RecommendationStatusUpdate } from '../types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALERT_CONDITIONS: AlertRuleCondition[] = ['gt', 'lt', 'eq'];
@@ -10,6 +10,7 @@ const TRACE_ID_RE = /^[0-9a-f]{32}$/;
 const SPAN_ID_RE = /^[0-9a-f]{16}$/;
 const SPAN_STATUSES: SpanStatus[] = ['ok', 'error'];
 const LOG_LEVELS: LogEntryLevel[] = ['debug', 'info', 'warn', 'error'];
+const RECOMMENDATION_STATUSES: RecommendationStatus[] = ['open', 'acknowledged', 'dismissed'];
 
 export class ValidationError extends Error {
     constructor(message: string) {
@@ -196,6 +197,19 @@ export const validateAlertRuleUpdate = (rule: any): rule is Partial<AlertRuleInp
 
   if (rule.enabled !== undefined && typeof rule.enabled !== 'boolean') {
     throw new ValidationError('Alert rule enabled must be a boolean');
+  }
+
+  return true;
+};
+
+/** Validation for updating a recommendation's status (PUT) — the only mutable field. */
+export const validateRecommendationStatusUpdate = (body: any): body is RecommendationStatusUpdate => {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('Recommendation status update must be an object');
+  }
+
+  if (!RECOMMENDATION_STATUSES.includes(body.status)) {
+    throw new ValidationError(`Recommendation status must be one of: ${RECOMMENDATION_STATUSES.join(', ')}`);
   }
 
   return true;

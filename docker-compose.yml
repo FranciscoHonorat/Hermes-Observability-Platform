@@ -90,6 +90,26 @@ services:
       - hermes-network
     restart: unless-stopped
 
+  # Hermes Intelligence (anomaly detection + performance recommendations)
+  intelligence:
+    build:
+      context: .
+      dockerfile: packages/intelligence/Dockerfile
+    container_name: hermes-intelligence
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      ANOMALY_CHECK_INTERVAL_SECONDS: "300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
   # Hermes API (serves data)
   api:
     build:

@@ -141,6 +141,7 @@ When running with Docker, services will be available at:
 | UI        | 3001 | http://localhost:3001             |
 | API       | 3000 | http://localhost:3000             |
 | Collector | 4000 | http://localhost:4000/metrics     |
+| Intelligence | — | internal only, no exposed port |
 | PostgreSQL| 5432 | postgres://localhost:5432/hermes  |
 | Redis     | 6379 | redis://localhost:6379            |
 
@@ -417,6 +418,12 @@ curl -X POST http://localhost:3030/api/simulator/start
 - ✅ Multiple chart types (line, area, bar)
 - ✅ Filters by application and metrics
 - ✅ Responsive interface with TailwindCSS
+
+### 🧠 Intelligence (Anomaly Detection + Performance Recommendations)
+- ✅ **Anomaly detection**: `IsolationForest` (scikit-learn) per `(app, metric)` series, fit on a baseline window and scored against a separate recent window — see [`packages/intelligence`](packages/intelligence/README.md) and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)
+- ✅ **Performance recommendations**: rule-based (not ML), derived from span latency/error-rate regressions and resource anomalies — deliberately explainable
+- ✅ **API**: `GET /api/v1/anomalies`, `GET /api/v1/recommendations`, `PUT /api/v1/recommendations/:id` — see [API.md](API.md#anomalies-endpoints)
+- ✅ **UI**: new Insights page
 
 ### 🚨 Alerts
 - ✅ Threshold-based alerts

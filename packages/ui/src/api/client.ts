@@ -117,6 +117,34 @@ export interface ServiceMapEdge {
   avgDurationMs: number;
 }
 
+export interface Anomaly {
+  id: number;
+  time: string;
+  app_name: string;
+  metric_name: string;
+  value: number;
+  expected_value: number | null;
+  anomaly_score: number;
+  severity: 'warning' | 'critical';
+  algorithm: string;
+  detected_at: string;
+}
+
+export interface Recommendation {
+  id: number;
+  app_name: string;
+  category: 'latency' | 'error_rate' | 'resource';
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  description: string;
+  related_metric_name?: string | null;
+  related_operation_name?: string | null;
+  evidence?: Record<string, unknown> | null;
+  status: 'open' | 'acknowledged' | 'dismissed';
+  created_at: string;
+  updated_at: string;
+}
+
 // Metrics API
 export const metricsApi = {
   getMetrics: async (params?: {
@@ -247,6 +275,27 @@ export const serviceMapApi = {
       to: params?.endTime ? new Date(params.endTime).getTime() : undefined
     };
     const response = await apiClient.get<{ nodes: ServiceMapNode[]; edges: ServiceMapEdge[] }>('/service-map', { params: queryParams });
+    return response.data;
+  }
+};
+
+// Anomalies API
+export const anomaliesApi = {
+  getAnomalies: async (params?: { appName?: string; metricName?: string; severity?: string; limit?: number }) => {
+    const response = await apiClient.get<{ anomalies: Anomaly[]; count: number }>('/anomalies', { params });
+    return response.data.anomalies;
+  }
+};
+
+// Recommendations API
+export const recommendationsApi = {
+  getRecommendations: async (params?: { appName?: string; status?: string; category?: string }) => {
+    const response = await apiClient.get<{ recommendations: Recommendation[]; count: number }>('/recommendations', { params });
+    return response.data.recommendations;
+  },
+
+  updateStatus: async (id: number, status: Recommendation['status']) => {
+    const response = await apiClient.put<Recommendation>(`/recommendations/${id}`, { status });
     return response.data;
   }
 };
