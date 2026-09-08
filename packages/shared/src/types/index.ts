@@ -5,3 +5,4 @@
 export * from './metricTypes';
 export * from './alertTypes';
 export * from './configurationTypes';
+export * from './traceTypes';

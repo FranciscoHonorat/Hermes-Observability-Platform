@@ -70,6 +70,28 @@ export interface Alert {
   notification_sent: boolean;
 }
 
+export interface Trace {
+  traceId: string;
+  rootService: string | null;
+  rootOperation: string | null;
+  startTime: number;
+  durationMs: number;
+  spanCount: number;
+  hasError: boolean;
+}
+
+export interface Span {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  serviceName: string;
+  operationName: string;
+  startTime: number;
+  durationMs: number;
+  status: 'ok' | 'error';
+  attributes?: Record<string, string | number | boolean>;
+}
+
 // Metrics API
 export const metricsApi = {
   getMetrics: async (params?: {
@@ -145,6 +167,25 @@ export const alertsApi = {
       params: { limit } 
     });
     return response.data.history;
+  }
+};
+
+// Traces API
+export const tracesApi = {
+  getTraces: async (params?: { serviceName?: string; startTime?: string; endTime?: string; limit?: number }) => {
+    const queryParams = {
+      serviceName: params?.serviceName || undefined,
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined,
+      limit: params?.limit
+    };
+    const response = await apiClient.get<{ traces: Trace[]; count: number }>('/traces', { params: queryParams });
+    return response.data.traces;
+  },
+
+  getTrace: async (traceId: string) => {
+    const response = await apiClient.get<{ traceId: string; spans: Span[] }>(`/traces/${traceId}`);
+    return response.data.spans;
   }
 };
 

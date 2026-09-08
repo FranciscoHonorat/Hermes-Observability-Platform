@@ -1,13 +1,21 @@
 import { MetricsCollector, createAgent } from './collector';
 import { httpMiddleware } from './metrics/http';
-import { Metric, MetricType, MetricUnit } from '@hermes/shared';
+import { Metric, MetricType, MetricUnit, Span, SpanStatus } from '@hermes/shared';
 import { loadConfig } from './config';
+import { startSpan } from './tracing/span';
+import { httpTracingMiddleware } from './tracing/httpTracingMiddleware';
+import { instrumentAxios } from './tracing/instrumentAxios';
 
 // Re-exports principais
 export { MetricsCollector, createAgent };
 export { httpMiddleware };
 export { MetricType, MetricUnit };
 export type { Metric };
+
+// Tracing
+export { startSpan, httpTracingMiddleware, instrumentAxios };
+export type { Span, SpanStatus };
+export type { SpanHandle } from './tracing/span';
 
 // Export do config loader para usuários avançados
 export { loadConfig };

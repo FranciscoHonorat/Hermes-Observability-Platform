@@ -2,10 +2,13 @@
  * Validation utilities
  */
 
-import { Metric, MetricType, AlertRuleInput, AlertRuleCondition } from '../types';
+import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus } from '../types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALERT_CONDITIONS: AlertRuleCondition[] = ['gt', 'lt', 'eq'];
+const TRACE_ID_RE = /^[0-9a-f]{32}$/;
+const SPAN_ID_RE = /^[0-9a-f]{16}$/;
+const SPAN_STATUSES: SpanStatus[] = ['ok', 'error'];
 
 export class ValidationError extends Error {
     constructor(message: string) {
@@ -37,6 +40,46 @@ export const validateMetric = (metric: any): metric is Metric => {
 
     return true;
 }
+
+export const validateSpan = (span: any): span is Span => {
+    if (!span || typeof span !== 'object') {
+        throw new ValidationError('Span must be an object');
+    }
+
+    if (!TRACE_ID_RE.test(span.traceId)) {
+        throw new ValidationError('Span traceId must be a 32-char hex string');
+    }
+
+    if (!SPAN_ID_RE.test(span.spanId)) {
+        throw new ValidationError('Span spanId must be a 16-char hex string');
+    }
+
+    if (span.parentSpanId !== undefined && !SPAN_ID_RE.test(span.parentSpanId)) {
+        throw new ValidationError('Span parentSpanId must be a 16-char hex string');
+    }
+
+    if (!span.serviceName || typeof span.serviceName !== 'string') {
+        throw new ValidationError('Span serviceName must be a string');
+    }
+
+    if (!span.operationName || typeof span.operationName !== 'string') {
+        throw new ValidationError('Span operationName must be a string');
+    }
+
+    if (!span.startTime || typeof span.startTime !== 'number') {
+        throw new ValidationError('Span startTime must be a valid number');
+    }
+
+    if (typeof span.duration !== 'number' || isNaN(span.duration) || span.duration < 0) {
+        throw new ValidationError('Span duration must be a non-negative number');
+    }
+
+    if (!SPAN_STATUSES.includes(span.status)) {
+        throw new ValidationError(`Span status must be one of: ${SPAN_STATUSES.join(', ')}`);
+    }
+
+    return true;
+};
 
 function validateEmailRecipients(value: any): asserts value is string[] {
   if (!Array.isArray(value) || value.length === 0) {

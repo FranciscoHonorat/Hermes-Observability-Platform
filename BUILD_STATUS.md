@@ -2,6 +2,10 @@
 
 Last verified: 2026-09-07, branch `render-test.o1`.
 
+## Schema fix: metric timestamp collisions (2026-09-07)
+
+Load testing (`docs/LOAD_TESTING.md`, results in `results/RESULTS.md`) found that `metrics`'s primary key — `(time, app_name, metric_name)`, with `time` at millisecond resolution — let two distinct events for the same app+metric silently overwrite each other via `ON CONFLICT DO UPDATE` whenever they landed in the same millisecond. Reproduced a 72% silent data loss rate under realistic concurrency. Fixed by keying uniqueness on the Redis Stream message ID (`stream_id`, added to the primary key) instead of client timestamp — verified 0% loss on the same reproduction after the fix. See `docker/init-db.sql` and `packages/processor/src/metricsProcessor.ts`. Existing deployments need the same migration this repo's local instance got: drop and recreate `metrics`/`metrics_1min` (or write a proper `ALTER TABLE` migration if the data must be preserved — this repo doesn't have a migration tool set up yet).
+
 ## Build
 
 ```

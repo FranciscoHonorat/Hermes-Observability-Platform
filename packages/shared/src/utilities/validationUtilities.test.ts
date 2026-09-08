@@ -3,6 +3,7 @@ import {
   validateMetric,
   validateAlertRule,
   validateAlertRuleUpdate,
+  validateSpan,
   sanitizeMetricName,
   ValidationError
 } from './validationUtilities';
@@ -93,6 +94,51 @@ describe('validateAlertRuleUpdate (partial)', () => {
 
   it('rejects malformed emails when present', () => {
     expect(() => validateAlertRuleUpdate({ email_recipients: ['bad'] })).toThrow(ValidationError);
+  });
+});
+
+const validSpan = {
+  traceId: 'a'.repeat(32),
+  spanId: 'b'.repeat(16),
+  serviceName: 'checkout-api',
+  operationName: 'POST /checkout',
+  startTime: Date.now(),
+  duration: 42,
+  status: 'ok' as const
+};
+
+describe('validateSpan', () => {
+  it('accepts a well-formed root span', () => {
+    expect(validateSpan(validSpan)).toBe(true);
+  });
+
+  it('accepts a well-formed child span with a parentSpanId', () => {
+    expect(validateSpan({ ...validSpan, parentSpanId: 'c'.repeat(16) })).toBe(true);
+  });
+
+  it('rejects a traceId that is not 32 hex chars', () => {
+    expect(() => validateSpan({ ...validSpan, traceId: 'not-hex' })).toThrow(ValidationError);
+  });
+
+  it('rejects a spanId that is not 16 hex chars', () => {
+    expect(() => validateSpan({ ...validSpan, spanId: 'too-short' })).toThrow(ValidationError);
+  });
+
+  it('rejects a malformed parentSpanId', () => {
+    expect(() => validateSpan({ ...validSpan, parentSpanId: 'zz' })).toThrow(ValidationError);
+  });
+
+  it('rejects a missing serviceName', () => {
+    const { serviceName, ...rest } = validSpan;
+    expect(() => validateSpan(rest)).toThrow(ValidationError);
+  });
+
+  it('rejects a negative duration', () => {
+    expect(() => validateSpan({ ...validSpan, duration: -5 })).toThrow(ValidationError);
+  });
+
+  it('rejects an unknown status', () => {
+    expect(() => validateSpan({ ...validSpan, status: 'pending' })).toThrow(ValidationError);
   });
 });
 

@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { metricsRouter } from './routes/metrics';
+import { tracesRouter } from './routes/traces';
 import { errorHandler } from './middleware/errorHandler';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 import { config } from './config';
@@ -61,13 +62,15 @@ export function createServer(): Application {
             version: '1.0.0',
             endpoints: {
                 health: '/health',
-                metrics: '/api/v1/metrics'
+                metrics: '/api/v1/metrics',
+                traces: '/api/v1/traces'
             }
         });
     });
 
     // Rotas da API (ingestão requer x-api-key — ver COLLECTOR_API_KEYS)
     app.use('/api/v1/metrics', apiKeyAuth, metricsRouter);
+    app.use('/api/v1/traces', apiKeyAuth, tracesRouter);
 
     // 404 handler
     app.use((req: Request, res: Response) => {

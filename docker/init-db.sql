@@ -2,6 +2,16 @@
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
 -- Metrics table (hypertable for time-series data)
+--
+-- stream_id is the Redis Stream message ID (e.g. "1725737382123-4") that
+-- produced this row. It — not `time` — is what makes a row unique: two
+-- distinct events for the same app_name+metric_name can legitimately land
+-- in the same millisecond under real load, and `time` alone previously let
+-- ON CONFLICT silently overwrite one with the other. stream_id is
+-- monotonic and unique per stream, so it both preserves every distinct
+-- event AND gives true idempotency if a message is ever redelivered
+-- (Redis Streams are at-least-once) — the retry just re-writes the same
+-- row instead of colliding with a different one.
 CREATE TABLE IF NOT EXISTS metrics (
     time TIMESTAMPTZ NOT NULL,
     app_name VARCHAR(255) NOT NULL,
@@ -9,7 +19,8 @@ CREATE TABLE IF NOT EXISTS metrics (
     metric_type VARCHAR(50) NOT NULL, -- counter, gauge, histogram
     value DOUBLE PRECISION NOT NULL,
     labels JSONB,
-    CONSTRAINT metrics_pkey PRIMARY KEY (time, app_name, metric_name)
+    stream_id TEXT NOT NULL,
+    CONSTRAINT metrics_pkey PRIMARY KEY (time, app_name, metric_name, stream_id)
 );
 
 -- Convert to hypertable for time-series optimization
@@ -55,8 +66,34 @@ CREATE TABLE IF NOT EXISTS applications (
     last_seen TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Spans table (hypertable for distributed tracing)
+--
+-- Unlike metrics, span_id is a randomly generated 8-byte value (not a coarse
+-- client timestamp), so (trace_id, span_id) can never legitimately collide
+-- between two distinct spans — no stream_id needed in the key here.
+CREATE TABLE IF NOT EXISTS spans (
+    trace_id VARCHAR(32) NOT NULL,
+    span_id VARCHAR(16) NOT NULL,
+    parent_span_id VARCHAR(16),
+    service_name VARCHAR(255) NOT NULL,
+    operation_name VARCHAR(255) NOT NULL,
+    start_time TIMESTAMPTZ NOT NULL,
+    duration_ms DOUBLE PRECISION NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ok',
+    attributes JSONB,
+    CONSTRAINT spans_pkey PRIMARY KEY (start_time, trace_id, span_id)
+);
+
+-- Convert to hypertable for time-series optimization
+SELECT create_hypertable('spans', 'start_time', if_not_exists => TRUE);
+
+-- Create indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_spans_trace_id ON spans (trace_id, start_time DESC);
+CREATE INDEX IF NOT EXISTS idx_spans_service ON spans (service_name, start_time DESC);
+
 -- Retention policy: keep data for 30 days
 SELECT add_retention_policy('metrics', INTERVAL '30 days', if_not_exists => TRUE);
+SELECT add_retention_policy('spans', INTERVAL '30 days', if_not_exists => TRUE);
 
 -- Create continuous aggregates for performance
 CREATE MATERIALIZED VIEW IF NOT EXISTS metrics_1min

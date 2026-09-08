@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
 import Applications from './pages/Applications';
+import Traces from './pages/Traces';
+import TraceDetail from './pages/TraceDetail';
 
 function App() {
   return (
@@ -28,6 +30,12 @@ function App() {
                     Applications
                   </Link>
                   <Link
+                    to="/traces"
+                    className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Traces
+                  </Link>
+                  <Link
                     to="/alerts"
                     className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
                   >
@@ -43,6 +51,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/applications" element={<Applications />} />
+            <Route path="/traces" element={<Traces />} />
+            <Route path="/traces/:traceId" element={<TraceDetail />} />
             <Route path="/alerts" element={<Alerts />} />
           </Routes>
         </main>

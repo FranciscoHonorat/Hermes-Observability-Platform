@@ -5,6 +5,7 @@ export const DEFAULT_RETENTION_DAYS = 30;
 
 export const REDIS_ALERTS_KEY = 'hermes:alerts:pending';
 export const REDIS_METRICS_STREAM = 'hermes:metrics:stream';
+export const REDIS_TRACES_STREAM = 'hermes:traces:stream';
 
 export const METRIC_NAMES = {
   CPU_USAGE: 'system.cpu.usage',

@@ -20,6 +20,7 @@ Complete REST API reference for the Hermes Observability Platform.
   - [Delete Alert](#delete-alert)
   - [Get Alert History](#get-alert-history)
 - [Applications Endpoints](#applications-endpoints)
+- [Traces Endpoints](#traces-endpoints)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
 
@@ -584,6 +585,98 @@ curl "http://localhost:3000/api/v1/apps"
   "count": 2
 }
 ```
+
+---
+
+## Traces Endpoints
+
+Distributed tracing: spans sent by `@hermes/agent`'s `httpTracingMiddleware()`/`startSpan()`/`instrumentAxios()` (see `packages/agent/src/tracing/`), ingested the same way as metrics (`POST /api/v1/traces` on the Collector — not this API), and queryable here.
+
+### List Traces
+
+Lists recent traces (one row per trace, aggregated across its spans) — not individual spans.
+
+**Endpoint:** `GET /api/v1/traces`
+
+**Query Parameters:**
+
+| Parameter     | Type   | Required | Description                                    |
+|--------------|--------|----------|--------------------------------------------------|
+| `serviceName`| string | No       | Only traces containing a span from this service |
+| `from`       | number | No       | Start of range, epoch ms                        |
+| `to`         | number | No       | End of range, epoch ms                           |
+| `limit`      | number | No       | Default 50                                        |
+| `offset`     | number | No       | Default 0                                          |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/traces?serviceName=checkout-api&limit=20"
+```
+
+**Example Response:**
+
+```json
+{
+  "traces": [
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "rootService": "checkout-api",
+      "rootOperation": "POST /checkout",
+      "startTime": 1788829268587,
+      "durationMs": 145,
+      "spanCount": 4,
+      "hasError": false
+    }
+  ],
+  "count": 1
+}
+```
+
+### Get Trace
+
+Every span belonging to one trace, ordered by start time — what the UI's waterfall view renders.
+
+**Endpoint:** `GET /api/v1/traces/:traceId`
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/traces/597e46e5a2221ca2ed5d0eaac686dcfd"
+```
+
+**Example Response:**
+
+```json
+{
+  "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+  "spans": [
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "44adaefb93c50af6",
+      "serviceName": "checkout-api",
+      "operationName": "POST /checkout",
+      "startTime": 1788829268587,
+      "durationMs": 145,
+      "status": "ok",
+      "attributes": { "http.method": "POST", "http.status_code": 200 }
+    },
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "f07c2f7e07d1ee9f",
+      "parentSpanId": "44adaefb93c50af6",
+      "serviceName": "checkout-api",
+      "operationName": "db.query orders.insert",
+      "startTime": 1788829268597,
+      "durationMs": 35,
+      "status": "ok",
+      "attributes": { "db.table": "orders" }
+    }
+  ]
+}
+```
+
+**Status Code:** `404` if no spans exist for `traceId`.
 
 ---
 

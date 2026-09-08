@@ -1,10 +1,11 @@
-import { Metric, MetricBatch, Logger } from '@hermes/shared';
+import { Metric, MetricBatch, Span, SpanBatch, Logger } from '@hermes/shared';
 import { MetricTransport } from './transport';
 import { loadConfig } from './config';
 import { collectCpuMetrics } from './metrics/cpu';
 import { collectMemoryMetrics } from './metrics/memory';
 import { collectEventLoopMetrics, collectUptimeMetric } from './metrics/eventloop';
 import { getHttpMetrics } from './metrics/http';
+import { getCompletedSpans } from './tracing/span';
 
 const logger = new Logger('MetricsCollector');
 
@@ -99,6 +100,35 @@ export class MetricsCollector {
             await this.transport.sendMetrics(batch);
         } catch (error: any) {
             logger.error('Failed to collect and send metrics:', error.message);
+        }
+
+        await this.collectAndSendSpans();
+    }
+
+    /**
+     * Drena os spans concluídos desde o último flush e envia ao collector.
+     */
+    private async collectAndSendSpans(): Promise<void> {
+        try {
+            const spans = getCompletedSpans();
+
+            if (spans.length === 0) {
+                return;
+            }
+
+            const enrichedSpans: Span[] = spans.map(span => ({
+                ...span,
+                serviceName: this.config.serviceName
+            }));
+
+            const batch: SpanBatch = {
+                spans: enrichedSpans,
+                timestamp: Date.now()
+            };
+
+            await this.transport.sendSpans(batch);
+        } catch (error: any) {
+            logger.error('Failed to collect and send spans:', error.message);
         }
     }
 

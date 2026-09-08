@@ -7,6 +7,9 @@ export * from './types/alertTypes';
 // Types - Configuração
 export * from './types/configurationTypes';
 
+// Types - Tracing
+export * from './types/traceTypes';
+
 // Utilities - Validação
 export * from './utilities/validationUtilities';
 

@@ -163,6 +163,26 @@ When running with Docker, services will be available at:
 └─────────────┘               └───────────┘                                         └──────────────┘
 ```
 
+## 📊 Performance
+
+Tested via Apache Bench and Vegeta against a local Docker Compose stack — full method and how to reproduce in [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
+
+| Metric | Value | Test |
+|---|---|---|
+| API read throughput | 1,191–1,442 req/s | `ab`, `/api/v1/metrics` and `/health` |
+| API P99 latency | 2.4 ms | Vegeta, 50 req/s sustained 30s |
+| Ingestion (Collector HTTP) | ~1,755 metrics/s | `POST /api/v1/metrics`, 0 rejected |
+| Ingestion (Redis Stream direct) | ~10,000 metrics/s | isolates the Collector's HTTP overhead |
+| **End-to-end sustained throughput** | **~282 metrics/s** | Processor drain rate — the real system ceiling |
+| Timeseries query (6h, 1min buckets) | 567 req/s, verified against real TimescaleDB data | `GET /api/v1/metrics/timeseries` |
+| Memory under load | +14–35 MB per service, no growth 30s after | `docker stats` |
+
+**The Processor is the bottleneck**, not the Collector or Redis: it drains the stream sequentially (10 messages per read, then a synchronous validate → persist → `XACK` per message). Verified the system holds up under sustained overload too: a 60s burst at ~3.5x the Processor's drain rate built a 60,000-message backlog with zero data loss, fully draining in ~3.8 minutes — at-least-once delivery held throughout, though there's currently no queue-depth metric or alert to surface that lag to an operator.
+
+This load test also caught and fixed a real bug: the metrics table's primary key used a millisecond-resolution client timestamp, so two distinct events for the same app+metric landing in the same millisecond silently overwrote each other (`ON CONFLICT DO UPDATE`) — reproduced a 72% silent data loss rate under realistic concurrency, fixed by keying on the Redis Stream message ID instead (verified 0% loss after). See `results/RESULTS.md` for the full repro/fix, and `BUILD_STATUS.md` for migration notes if you're running an existing deployment.
+
+Not yet tested: sustained load beyond ~1 minute, the authenticated path under load, or a backlog large enough that it never catches up. Full numbers, caveats, and the `ab`/Vegeta commands to reproduce them: [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
+
 ## 📊 Usage Examples
 
 ### 1. Instrumenting Your Node.js Application
@@ -370,6 +390,12 @@ curl -X POST http://localhost:3030/api/simulator/start
   - Memory (heap, RSS, external)
   - Event loop lag
   - Active handles
+
+### 🔗 Distributed Tracing
+- ✅ **Spans**: `startSpan()` for manual instrumentation, `httpTracingMiddleware()` for automatic per-request spans
+- ✅ **Cross-service propagation**: W3C `traceparent` header, via `instrumentAxios()` on outgoing calls
+- ✅ **Waterfall view**: parent/child span hierarchy with proportional timing in the UI
+- ✅ **API**: `GET /api/v1/traces` (list) and `GET /api/v1/traces/:traceId` (detail) — see [API.md](API.md#traces-endpoints)
 
 ### 📊 Dashboard (UI)
 - ✅ Real-time visualization with Chart.js

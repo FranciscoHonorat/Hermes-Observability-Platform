@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { metricsRouter } from './routes/metrics';
 import { applicationsRouter } from './routes/applications';
 import { alertsRouter } from './routes/alerts';
+import { tracesRouter } from './routes/traces';
 import { errorHandler } from './middleware/errorHandler';
 import { config } from './config';
 import { Logger } from '@hermes/shared';
@@ -68,7 +69,8 @@ export function createServer(): Application {
                 health: '/health',
                 metrics: '/api/v1/metrics',
                 applications: '/api/v1/applications',
-                alerts: '/api/v1/alerts'
+                alerts: '/api/v1/alerts',
+                traces: '/api/v1/traces'
             },
             documentation: {
                 metrics: {
@@ -89,6 +91,10 @@ export function createServer(): Application {
                     update: 'PUT /api/v1/alerts/:id',
                     delete: 'DELETE /api/v1/alerts/:id',
                     history: 'GET /api/v1/alerts/:id/history'
+                },
+                traces: {
+                    list: 'GET /api/v1/traces?serviceName=&from=&to=&limit=&offset=',
+                    get: 'GET /api/v1/traces/:traceId'
                 }
             }
         });
@@ -98,6 +104,7 @@ export function createServer(): Application {
     app.use('/api/v1/metrics', metricsRouter);
     app.use('/api/v1/applications', applicationsRouter);
     app.use('/api/v1/alerts', alertsRouter);
+    app.use('/api/v1/traces', tracesRouter);
 
     // 404 handler
     app.use((req: Request, res: Response) => {

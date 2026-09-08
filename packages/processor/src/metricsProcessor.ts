@@ -54,7 +54,7 @@ export async function processMetrics(): Promise<void> {
 
                 try {
                     //Persistir no banco
-                    await persistMetric(validMetric);
+                    await persistMetric(validMetric, messageId);
 
                     // Registrar aplicação
                     await registerApplication(validMetric.metadata?.service || 'unknown');
@@ -76,11 +76,16 @@ export async function processMetrics(): Promise<void> {
     }
 }
 
-async function persistMetric(metric: Metric): Promise<void> {
+async function persistMetric(metric: Metric, streamId: string): Promise<void> {
+  // stream_id (not just time/app_name/metric_name) is part of the conflict
+  // target: two distinct events for the same app+metric can share a
+  // millisecond under real load, and streamId is what keeps them from
+  // silently overwriting one another while still deduping a genuine
+  // Redis Streams redelivery of the *same* message. See docker/init-db.sql.
   await pool.query(
-    `INSERT INTO metrics (time, app_name, metric_name, metric_type, value, labels)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (time, app_name, metric_name) DO UPDATE
+    `INSERT INTO metrics (time, app_name, metric_name, metric_type, value, labels, stream_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (time, app_name, metric_name, stream_id) DO UPDATE
      SET value = EXCLUDED.value, labels = EXCLUDED.labels`,
     [
       new Date(metric.timestamp),
@@ -88,7 +93,8 @@ async function persistMetric(metric: Metric): Promise<void> {
       metric.name,
       metric.type,
       metric.value,
-      JSON.stringify(metric.labels || {})
+      JSON.stringify(metric.labels || {}),
+      streamId
     ]
   );
 }

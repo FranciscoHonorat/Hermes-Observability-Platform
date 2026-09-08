@@ -32,6 +32,7 @@ export const config = {
     // Configurações do consumidor de mensagens
     processor: {
         consumerGroup: 'processor-group',
+        tracesConsumerGroup: 'traces-processor-group',
         consumerName: 'processor-1',
         batchSize: 10,
         blockTimeout: 5000,
