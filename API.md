@@ -21,6 +21,7 @@ Complete REST API reference for the Hermes Observability Platform.
   - [Get Alert History](#get-alert-history)
 - [Applications Endpoints](#applications-endpoints)
 - [Traces Endpoints](#traces-endpoints)
+- [Logs Endpoints](#logs-endpoints)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
 
@@ -677,6 +678,56 @@ curl "http://localhost:3000/api/v1/traces/597e46e5a2221ca2ed5d0eaac686dcfd"
 ```
 
 **Status Code:** `404` if no spans exist for `traceId`.
+
+---
+
+## Logs Endpoints
+
+Log aggregation: entries sent by `@hermes/agent`'s `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` (see `packages/agent/src/logging/`), ingested the same way as metrics/traces (`POST /api/v1/logs` on the Collector — not this API). An entry logged while a span is active (`startSpan()`/`httpTracingMiddleware()`) automatically carries that span's `traceId`/`spanId`, correlating it with a trace.
+
+### List Logs
+
+**Endpoint:** `GET /api/v1/logs`
+
+**Query Parameters:**
+
+| Parameter  | Type   | Required | Description                                                        |
+|-----------|--------|----------|----------------------------------------------------------------------|
+| `appName` | string | No       | Filter to one service                                               |
+| `level`   | string | No       | `debug`, `info`, `warn`, or `error`                                  |
+| `search`  | string | No       | Substring match against the message (trigram-indexed, not whole-word)|
+| `traceId` | string | No       | Only logs correlated with this trace                                 |
+| `from`    | number | No       | Start of range, epoch ms                                             |
+| `to`      | number | No       | End of range, epoch ms                                                 |
+| `limit`   | number | No       | Default 100                                                            |
+| `offset`  | number | No       | Default 0                                                               |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/logs?level=error&search=timeout&limit=50"
+```
+
+**Example Response:**
+
+```json
+{
+  "logs": [
+    {
+      "serviceName": "payment-service",
+      "level": "error",
+      "message": "connection timeout calling charge provider",
+      "timestamp": 1788829268647,
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "9e8cae997f2e0fc1",
+      "attributes": { "http.status_code": 502 }
+    }
+  ],
+  "count": 1
+}
+```
+
+There is no single-entry "get" endpoint — a log line is never "not found," only absent from a filtered list (`200` with `logs: []`).
 
 ---
 

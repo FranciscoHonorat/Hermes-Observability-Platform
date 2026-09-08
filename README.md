@@ -397,6 +397,12 @@ curl -X POST http://localhost:3030/api/simulator/start
 - ✅ **Waterfall view**: parent/child span hierarchy with proportional timing in the UI
 - ✅ **API**: `GET /api/v1/traces` (list) and `GET /api/v1/traces/:traceId` (detail) — see [API.md](API.md#traces-endpoints)
 
+### 📝 Log Aggregation
+- ✅ **Explicit API**: `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` — not a `console.*` monkeypatch
+- ✅ **Trace correlation**: a log written inside an active span auto-carries its `traceId`/`spanId`, no extra API needed
+- ✅ **Substring search**: `pg_trgm`-indexed, so `ILIKE '%text%'` against stack traces/error codes stays fast
+- ✅ **API**: `GET /api/v1/logs?appName=&level=&search=&traceId=` — see [API.md](API.md#logs-endpoints)
+
 ### 📊 Dashboard (UI)
 - ✅ Real-time visualization with Chart.js
 - ✅ Time range selection (15min, 1h, 6h, 24h, 7d, 30d)

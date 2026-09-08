@@ -2,13 +2,14 @@
  * Validation utilities
  */
 
-import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus } from '../types';
+import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus, LogEntry, LogEntryLevel } from '../types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALERT_CONDITIONS: AlertRuleCondition[] = ['gt', 'lt', 'eq'];
 const TRACE_ID_RE = /^[0-9a-f]{32}$/;
 const SPAN_ID_RE = /^[0-9a-f]{16}$/;
 const SPAN_STATUSES: SpanStatus[] = ['ok', 'error'];
+const LOG_LEVELS: LogEntryLevel[] = ['debug', 'info', 'warn', 'error'];
 
 export class ValidationError extends Error {
     constructor(message: string) {
@@ -76,6 +77,38 @@ export const validateSpan = (span: any): span is Span => {
 
     if (!SPAN_STATUSES.includes(span.status)) {
         throw new ValidationError(`Span status must be one of: ${SPAN_STATUSES.join(', ')}`);
+    }
+
+    return true;
+};
+
+export const validateLogEntry = (log: any): log is LogEntry => {
+    if (!log || typeof log !== 'object') {
+        throw new ValidationError('Log entry must be an object');
+    }
+
+    if (!log.serviceName || typeof log.serviceName !== 'string') {
+        throw new ValidationError('Log entry serviceName must be a string');
+    }
+
+    if (!LOG_LEVELS.includes(log.level)) {
+        throw new ValidationError(`Log entry level must be one of: ${LOG_LEVELS.join(', ')}`);
+    }
+
+    if (!log.message || typeof log.message !== 'string') {
+        throw new ValidationError('Log entry message must be a string');
+    }
+
+    if (!log.timestamp || typeof log.timestamp !== 'number') {
+        throw new ValidationError('Log entry timestamp must be a valid number');
+    }
+
+    if (log.traceId !== undefined && !TRACE_ID_RE.test(log.traceId)) {
+        throw new ValidationError('Log entry traceId must be a 32-char hex string');
+    }
+
+    if (log.spanId !== undefined && !SPAN_ID_RE.test(log.spanId)) {
+        throw new ValidationError('Log entry spanId must be a 16-char hex string');
     }
 
     return true;

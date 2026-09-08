@@ -1,8 +1,9 @@
-import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM } from '@hermes/shared';
+import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM, REDIS_LOGS_STREAM } from '@hermes/shared';
 import { testConnection, closePool } from './database';
-import { redis, tracesRedis, criarGrupoConsumidor } from './redis';
+import { redis, tracesRedis, logsRedis, criarGrupoConsumidor } from './redis';
 import { processMetrics } from './metricsProcessor';
 import { processSpans } from './spansProcessor';
+import { processLogs } from './logsProcessor';
 import { startAlertEngine } from './alertEngine';
 import { config } from './config';
 
@@ -21,6 +22,7 @@ async function main() {
         // 2. Criar grupos de consumidores no Redis
         await criarGrupoConsumidor(REDIS_METRICS_STREAM, config.processor.consumerGroup);
         await criarGrupoConsumidor(REDIS_TRACES_STREAM, config.processor.tracesConsumerGroup);
+        await criarGrupoConsumidor(REDIS_LOGS_STREAM, config.processor.logsConsumerGroup);
 
         // 3. Iniciar processamento de métricas
         logger.info('Iniciando processamento de métricas...');
@@ -33,6 +35,13 @@ async function main() {
         logger.info('Iniciando processamento de spans...');
         processSpans().catch(err => {
             logger.error('Erro fatal no processamento de spans:', err);
+            process.exit(1);
+        });
+
+        // 3c. Iniciar processamento de logs
+        logger.info('Iniciando processamento de logs...');
+        processLogs().catch(err => {
+            logger.error('Erro fatal no processamento de logs:', err);
             process.exit(1);
         });
 
@@ -59,6 +68,7 @@ async function shutdown(signal: string) {
         await closePool();
         await redis.quit();
         await tracesRedis.quit();
+        await logsRedis.quit();
         logger.info('Recursos liberados com sucesso');
         process.exit(0);
     } catch (error) {

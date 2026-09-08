@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { MetricBatch, SpanBatch, Logger } from '@hermes/shared';
+import { MetricBatch, SpanBatch, LogBatch, Logger } from '@hermes/shared';
 
 const logger = new Logger('Transport');
 
@@ -52,6 +52,25 @@ export class MetricTransport {
             logger.error(`No response from collector: ${this.collectorUrl}`);
         } else {
             logger.error(`Error sending spans: ${error.message}`);
+        }
+        // Não lança erro para não quebrar a aplicação
+        }
+    }
+
+    async sendLogs(batch: LogBatch): Promise<void> {
+        try {
+            logger.debug(`Sending ${batch.logs.length} logs to collector`);
+
+            await this.client.post('/api/v1/logs', batch);
+
+            logger.info(`Successfully sent ${batch.logs.length} logs to collector`);
+        } catch (error: any) {
+        if (error.response) {
+            logger.error(`Failed to send logs: ${error.response.status} - ${error.response.data}`);
+        } else if (error.request) {
+            logger.error(`No response from collector: ${this.collectorUrl}`);
+        } else {
+            logger.error(`Error sending logs: ${error.message}`);
         }
         // Não lança erro para não quebrar a aplicação
         }

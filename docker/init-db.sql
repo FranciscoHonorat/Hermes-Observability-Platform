@@ -1,6 +1,10 @@
 -- Enable TimescaleDB extension
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
+-- Enable trigram matching for fast substring search on log messages
+-- (stack traces / error codes rarely match whole-word full-text search)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- Metrics table (hypertable for time-series data)
 --
 -- stream_id is the Redis Stream message ID (e.g. "1725737382123-4") that
@@ -91,9 +95,36 @@ SELECT create_hypertable('spans', 'start_time', if_not_exists => TRUE);
 CREATE INDEX IF NOT EXISTS idx_spans_trace_id ON spans (trace_id, start_time DESC);
 CREATE INDEX IF NOT EXISTS idx_spans_service ON spans (service_name, start_time DESC);
 
+-- Logs table (hypertable for log aggregation)
+--
+-- stream_id in the PK for the same reason as metrics: `time` alone collides
+-- at millisecond resolution under real load, and unlike spans (unique by a
+-- random span_id), a log line has no equivalent natural key.
+CREATE TABLE IF NOT EXISTS logs (
+    time TIMESTAMPTZ NOT NULL,
+    app_name VARCHAR(255) NOT NULL,
+    level VARCHAR(20) NOT NULL, -- debug, info, warn, error
+    message TEXT NOT NULL,
+    trace_id VARCHAR(32),
+    span_id VARCHAR(16),
+    attributes JSONB,
+    stream_id TEXT NOT NULL,
+    CONSTRAINT logs_pkey PRIMARY KEY (time, app_name, stream_id)
+);
+
+-- Convert to hypertable for time-series optimization
+SELECT create_hypertable('logs', 'time', if_not_exists => TRUE);
+
+-- Create indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_logs_app_name ON logs (app_name, time DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_level ON logs (level, time DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs (trace_id) WHERE trace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_logs_message_trgm ON logs USING GIN (message gin_trgm_ops);
+
 -- Retention policy: keep data for 30 days
 SELECT add_retention_policy('metrics', INTERVAL '30 days', if_not_exists => TRUE);
 SELECT add_retention_policy('spans', INTERVAL '30 days', if_not_exists => TRUE);
+SELECT add_retention_policy('logs', INTERVAL '30 days', if_not_exists => TRUE);
 
 -- Create continuous aggregates for performance
 CREATE MATERIALIZED VIEW IF NOT EXISTS metrics_1min

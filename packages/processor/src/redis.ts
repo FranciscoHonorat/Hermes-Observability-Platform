@@ -31,6 +31,9 @@ export const redis = createConnection('main');
 // ciclo. Precisa de uma conexão própria por loop bloqueante.
 export const tracesRedis = createConnection('traces');
 
+// Conexão dedicada para o loop de logs — mesmo motivo do tracesRedis acima.
+export const logsRedis = createConnection('logs');
+
 // Função para criar um grupo de consumidores num stream específico
 export async function criarGrupoConsumidor(
     streamKey: string = REDIS_METRICS_STREAM,

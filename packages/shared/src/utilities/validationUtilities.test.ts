@@ -4,6 +4,7 @@ import {
   validateAlertRule,
   validateAlertRuleUpdate,
   validateSpan,
+  validateLogEntry,
   sanitizeMetricName,
   ValidationError
 } from './validationUtilities';
@@ -139,6 +140,49 @@ describe('validateSpan', () => {
 
   it('rejects an unknown status', () => {
     expect(() => validateSpan({ ...validSpan, status: 'pending' })).toThrow(ValidationError);
+  });
+});
+
+const validLog = {
+  serviceName: 'checkout-api',
+  level: 'info' as const,
+  message: 'order created',
+  timestamp: Date.now()
+};
+
+describe('validateLogEntry', () => {
+  it('accepts a well-formed entry with no trace context', () => {
+    expect(validateLogEntry(validLog)).toBe(true);
+  });
+
+  it('accepts an entry carrying a traceId/spanId', () => {
+    expect(validateLogEntry({ ...validLog, traceId: 'a'.repeat(32), spanId: 'b'.repeat(16) })).toBe(true);
+  });
+
+  it('rejects a missing serviceName', () => {
+    const { serviceName, ...rest } = validLog;
+    expect(() => validateLogEntry(rest)).toThrow(ValidationError);
+  });
+
+  it('rejects an unknown level', () => {
+    expect(() => validateLogEntry({ ...validLog, level: 'trace' })).toThrow(ValidationError);
+  });
+
+  it('rejects a missing message', () => {
+    expect(() => validateLogEntry({ ...validLog, message: '' })).toThrow(ValidationError);
+  });
+
+  it('rejects a missing timestamp', () => {
+    const { timestamp, ...rest } = validLog;
+    expect(() => validateLogEntry(rest)).toThrow(ValidationError);
+  });
+
+  it('rejects a malformed traceId when present', () => {
+    expect(() => validateLogEntry({ ...validLog, traceId: 'not-hex' })).toThrow(ValidationError);
+  });
+
+  it('rejects a malformed spanId when present', () => {
+    expect(() => validateLogEntry({ ...validLog, traceId: 'a'.repeat(32), spanId: 'zz' })).toThrow(ValidationError);
   });
 });
 

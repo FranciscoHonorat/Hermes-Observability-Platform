@@ -33,6 +33,7 @@ export const config = {
     processor: {
         consumerGroup: 'processor-group',
         tracesConsumerGroup: 'traces-processor-group',
+        logsConsumerGroup: 'logs-processor-group',
         consumerName: 'processor-1',
         batchSize: 10,
         blockTimeout: 5000,

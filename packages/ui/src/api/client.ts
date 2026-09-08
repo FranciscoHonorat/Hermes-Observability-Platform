@@ -92,6 +92,16 @@ export interface Span {
   attributes?: Record<string, string | number | boolean>;
 }
 
+export interface LogEntry {
+  serviceName: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  timestamp: number;
+  traceId?: string;
+  spanId?: string;
+  attributes?: Record<string, string | number | boolean>;
+}
+
 // Metrics API
 export const metricsApi = {
   getMetrics: async (params?: {
@@ -186,6 +196,31 @@ export const tracesApi = {
   getTrace: async (traceId: string) => {
     const response = await apiClient.get<{ traceId: string; spans: Span[] }>(`/traces/${traceId}`);
     return response.data.spans;
+  }
+};
+
+// Logs API
+export const logsApi = {
+  getLogs: async (params?: {
+    appName?: string;
+    level?: string;
+    search?: string;
+    traceId?: string;
+    startTime?: string;
+    endTime?: string;
+    limit?: number;
+  }) => {
+    const queryParams = {
+      appName: params?.appName || undefined,
+      level: params?.level || undefined,
+      search: params?.search || undefined,
+      traceId: params?.traceId || undefined,
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined,
+      limit: params?.limit
+    };
+    const response = await apiClient.get<{ logs: LogEntry[]; count: number }>('/logs', { params: queryParams });
+    return response.data.logs;
   }
 };
 

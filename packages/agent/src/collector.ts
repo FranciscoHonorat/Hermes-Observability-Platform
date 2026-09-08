@@ -1,4 +1,4 @@
-import { Metric, MetricBatch, Span, SpanBatch, Logger } from '@hermes/shared';
+import { Metric, MetricBatch, Span, SpanBatch, LogEntry, LogBatch, Logger } from '@hermes/shared';
 import { MetricTransport } from './transport';
 import { loadConfig } from './config';
 import { collectCpuMetrics } from './metrics/cpu';
@@ -6,6 +6,7 @@ import { collectMemoryMetrics } from './metrics/memory';
 import { collectEventLoopMetrics, collectUptimeMetric } from './metrics/eventloop';
 import { getHttpMetrics } from './metrics/http';
 import { getCompletedSpans } from './tracing/span';
+import { getCompletedLogs } from './logging/log';
 
 const logger = new Logger('MetricsCollector');
 
@@ -103,6 +104,7 @@ export class MetricsCollector {
         }
 
         await this.collectAndSendSpans();
+        await this.collectAndSendLogs();
     }
 
     /**
@@ -129,6 +131,33 @@ export class MetricsCollector {
             await this.transport.sendSpans(batch);
         } catch (error: any) {
             logger.error('Failed to collect and send spans:', error.message);
+        }
+    }
+
+    /**
+     * Drena os logs concluídos desde o último flush e envia ao collector.
+     */
+    private async collectAndSendLogs(): Promise<void> {
+        try {
+            const logs = getCompletedLogs();
+
+            if (logs.length === 0) {
+                return;
+            }
+
+            const enrichedLogs: LogEntry[] = logs.map(entry => ({
+                ...entry,
+                serviceName: this.config.serviceName
+            }));
+
+            const batch: LogBatch = {
+                logs: enrichedLogs,
+                timestamp: Date.now()
+            };
+
+            await this.transport.sendLogs(batch);
+        } catch (error: any) {
+            logger.error('Failed to collect and send logs:', error.message);
         }
     }
 

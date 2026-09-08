@@ -10,6 +10,9 @@ export * from './types/configurationTypes';
 // Types - Tracing
 export * from './types/traceTypes';
 
+// Types - Logs
+export * from './types/logTypes';
+
 // Utilities - Validação
 export * from './utilities/validationUtilities';
 

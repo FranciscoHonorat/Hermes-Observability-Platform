@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM } from '@hermes/shared';
+import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM, REDIS_LOGS_STREAM } from '@hermes/shared';
 import { config } from './config';
 
 const logger = new Logger('Redis');
@@ -59,6 +59,17 @@ export async function addSpanToStream(span: any): Promise<string> {
         '*',
         'data',
         JSON.stringify(span)
+    );
+    return id || '';
+}
+
+// Função para adicionar log ao stream
+export async function addLogToStream(log: any): Promise<string> {
+    const id = await redis.xadd(
+        REDIS_LOGS_STREAM,
+        '*',
+        'data',
+        JSON.stringify(log)
     );
     return id || '';
 }
