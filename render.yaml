@@ -1,0 +1,103 @@
+services:
+  # 1. Banco TimescaleDB (Sem disk para rodar no Free)
+  - type: pserv
+    name: hermes-postgres-app
+    env: docker
+    image:
+      url: timescale/timescaledb:latest-pg15
+    plan: free
+    envVars:
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        value: hermes_dev_password
+
+  # 2. Redis
+  - type: pserv
+    name: hermes-redis-app
+    env: docker
+    image:
+      url: redis:7-alpine
+    plan: free
+
+  # 3. Collector
+  - type: web
+    name: hermes-collector-app
+    env: docker
+    dockerfilePath: docker/Dockerfile.collector
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: REDIS_HOST
+        value: hermes-redis-app
+      - key: REDIS_PORT
+        value: "6379"
+      - key: COLLECTOR_PORT
+        value: "4000"
+      - key: NODE_ENV
+        value: production
+
+  # 4. Processor
+  - type: worker
+    name: hermes-processor-app
+    env: docker
+    dockerfilePath: docker/Dockerfile.processor
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        value: hermes-postgres-app
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        value: hermes_dev_password
+      - key: REDIS_HOST
+        value: hermes-redis-app
+      - key: REDIS_PORT
+        value: "6379"
+      - key: NODE_ENV
+        value: production
+
+  # 5. API
+  - type: web
+    name: hermes-api-app
+    env: docker
+    dockerfilePath: docker/Dockerfile.api
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: POSTGRES_HOST
+        value: hermes-postgres-app
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        value: hermes_observability
+      - key: POSTGRES_USER
+        value: hermes
+      - key: POSTGRES_PASSWORD
+        value: hermes_dev_password
+      - key: REDIS_HOST
+        value: hermes-redis-app
+      - key: REDIS_PORT
+        value: "6379"
+      - key: API_PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
+
+  # 6. UI
+  - type: web
+    name: hermes-ui-app
+    env: docker
+    dockerfilePath: docker/Dockerfile.ui
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        value: https://hermes-api-app.onrender.com
