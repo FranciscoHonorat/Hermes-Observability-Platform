@@ -3,6 +3,7 @@ import axios from 'axios';
 const apiClient = axios.create({
   baseURL: '/api',
   timeout: 10000,
+  withCredentials: true, // sends the httpOnly session cookie set by /api/v1/auth
   headers: {
     'Content-Type': 'application/json'
   }
@@ -13,6 +14,26 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
+// packages/users and packages/admin are separate services, reachable at
+// /api/v1/auth and /api/v1/admin (see docker/nginx.conf) rather than
+// through the /api shorthand apiClient uses for the main data API.
+const authAdminClient = axios.create({
+  baseURL: '/api/v1',
+  timeout: 10000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+authAdminClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Auth/Admin API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
@@ -68,6 +89,81 @@ export interface Alert {
   metric_value: number;
   resolved_at?: string;
   notification_sent: boolean;
+}
+
+export interface Trace {
+  traceId: string;
+  rootService: string | null;
+  rootOperation: string | null;
+  startTime: number;
+  durationMs: number;
+  spanCount: number;
+  hasError: boolean;
+}
+
+export interface Span {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  serviceName: string;
+  operationName: string;
+  startTime: number;
+  durationMs: number;
+  status: 'ok' | 'error';
+  attributes?: Record<string, string | number | boolean>;
+}
+
+export interface LogEntry {
+  serviceName: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  timestamp: number;
+  traceId?: string;
+  spanId?: string;
+  attributes?: Record<string, string | number | boolean>;
+}
+
+export interface ServiceMapNode {
+  serviceName: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+export interface ServiceMapEdge {
+  source: string;
+  target: string;
+  callCount: number;
+  errorCount: number;
+  avgDurationMs: number;
+}
+
+export interface Anomaly {
+  id: number;
+  time: string;
+  app_name: string;
+  metric_name: string;
+  value: number;
+  expected_value: number | null;
+  anomaly_score: number;
+  severity: 'warning' | 'critical';
+  algorithm: string;
+  detected_at: string;
+}
+
+export interface Recommendation {
+  id: number;
+  app_name: string;
+  category: 'latency' | 'error_rate' | 'resource';
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  description: string;
+  related_metric_name?: string | null;
+  related_operation_name?: string | null;
+  evidence?: Record<string, unknown> | null;
+  status: 'open' | 'acknowledged' | 'dismissed';
+  created_at: string;
+  updated_at: string;
 }
 
 // Metrics API
@@ -145,6 +241,168 @@ export const alertsApi = {
       params: { limit } 
     });
     return response.data.history;
+  }
+};
+
+// Traces API
+export const tracesApi = {
+  getTraces: async (params?: { serviceName?: string; startTime?: string; endTime?: string; limit?: number }) => {
+    const queryParams = {
+      serviceName: params?.serviceName || undefined,
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined,
+      limit: params?.limit
+    };
+    const response = await apiClient.get<{ traces: Trace[]; count: number }>('/traces', { params: queryParams });
+    return response.data.traces;
+  },
+
+  getTrace: async (traceId: string) => {
+    const response = await apiClient.get<{ traceId: string; spans: Span[] }>(`/traces/${traceId}`);
+    return response.data.spans;
+  }
+};
+
+// Logs API
+export const logsApi = {
+  getLogs: async (params?: {
+    appName?: string;
+    level?: string;
+    search?: string;
+    traceId?: string;
+    startTime?: string;
+    endTime?: string;
+    limit?: number;
+  }) => {
+    const queryParams = {
+      appName: params?.appName || undefined,
+      level: params?.level || undefined,
+      search: params?.search || undefined,
+      traceId: params?.traceId || undefined,
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined,
+      limit: params?.limit
+    };
+    const response = await apiClient.get<{ logs: LogEntry[]; count: number }>('/logs', { params: queryParams });
+    return response.data.logs;
+  }
+};
+
+// Service Map API
+export const serviceMapApi = {
+  getServiceMap: async (params?: { startTime?: string; endTime?: string }) => {
+    const queryParams = {
+      from: params?.startTime ? new Date(params.startTime).getTime() : undefined,
+      to: params?.endTime ? new Date(params.endTime).getTime() : undefined
+    };
+    const response = await apiClient.get<{ nodes: ServiceMapNode[]; edges: ServiceMapEdge[] }>('/service-map', { params: queryParams });
+    return response.data;
+  }
+};
+
+// Anomalies API
+export const anomaliesApi = {
+  getAnomalies: async (params?: { appName?: string; metricName?: string; severity?: string; limit?: number }) => {
+    const response = await apiClient.get<{ anomalies: Anomaly[]; count: number }>('/anomalies', { params });
+    return response.data.anomalies;
+  }
+};
+
+// Recommendations API
+export const recommendationsApi = {
+  getRecommendations: async (params?: { appName?: string; status?: string; category?: string }) => {
+    const response = await apiClient.get<{ recommendations: Recommendation[]; count: number }>('/recommendations', { params });
+    return response.data.recommendations;
+  },
+
+  updateStatus: async (id: number, status: Recommendation['status']) => {
+    const response = await apiClient.put<Recommendation>(`/recommendations/${id}`, { status });
+    return response.data;
+  }
+};
+
+export interface CurrentUser {
+  id: number;
+  tenant_id: number;
+  email: string;
+  role: 'admin' | 'viewer';
+  created_at: string;
+  tenant_name: string;
+  tenant_slug: string;
+}
+
+export interface AdminUser {
+  id: number;
+  tenant_id: number;
+  email: string;
+  role: 'admin' | 'viewer';
+  created_at: string;
+}
+
+export interface ApiKeyRecord {
+  id: number;
+  tenant_id: number;
+  label: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  key?: string; // present only in the response right after creation
+}
+
+// Auth API — packages/users
+export const authApi = {
+  signup: async (tenantName: string, email: string, password: string) => {
+    const response = await authAdminClient.post('/auth/signup', { tenantName, email, password });
+    return response.data;
+  },
+
+  login: async (tenantSlug: string, email: string, password: string) => {
+    const response = await authAdminClient.post('/auth/login', { tenantSlug, email, password });
+    return response.data;
+  },
+
+  logout: async () => {
+    await authAdminClient.post('/auth/logout');
+  },
+
+  getMe: async (): Promise<CurrentUser> => {
+    const response = await authAdminClient.get<CurrentUser>('/auth/me');
+    return response.data;
+  }
+};
+
+// Admin API — packages/admin (tenant-admin-only)
+export const adminApi = {
+  getUsers: async () => {
+    const response = await authAdminClient.get<{ users: AdminUser[]; count: number }>('/admin/users');
+    return response.data.users;
+  },
+
+  createUser: async (email: string, password: string, role: 'admin' | 'viewer') => {
+    const response = await authAdminClient.post<AdminUser>('/admin/users', { email, password, role });
+    return response.data;
+  },
+
+  updateUserRole: async (id: number, role: 'admin' | 'viewer') => {
+    const response = await authAdminClient.put<AdminUser>(`/admin/users/${id}/role`, { role });
+    return response.data;
+  },
+
+  deleteUser: async (id: number) => {
+    await authAdminClient.delete(`/admin/users/${id}`);
+  },
+
+  getApiKeys: async () => {
+    const response = await authAdminClient.get<{ apiKeys: ApiKeyRecord[]; count: number }>('/admin/api-keys');
+    return response.data.apiKeys;
+  },
+
+  createApiKey: async (label?: string) => {
+    const response = await authAdminClient.post<ApiKeyRecord>('/admin/api-keys', { label });
+    return response.data;
+  },
+
+  revokeApiKey: async (id: number) => {
+    await authAdminClient.delete(`/admin/api-keys/${id}`);
   }
 };
 

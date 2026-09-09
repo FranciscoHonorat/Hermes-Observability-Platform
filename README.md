@@ -7,7 +7,7 @@ Complete observability system for Node.js applications, focusing on metrics, das
 - **[🚀 Quick Start](#-getting-started)** - Get started in 5 minutes with Docker
 - **[📖 API Documentation](API.md)** - Complete REST API reference
 - **[🎯 Demo Application](examples/demo-app/)** - Practical SDK usage example
-- **[🐋 Docker Guide](DOCKER.md)** - Complete Docker guide (400+ lines)
+- **[🐋 Docker Guide](DOCKER.md)** - Services, volumes, auth, and troubleshooting
 - **[⚡ Troubleshooting](#-troubleshooting)** - Common problems & solutions
 
 ## 🎯 MVP Scope
@@ -141,6 +141,7 @@ When running with Docker, services will be available at:
 | UI        | 3001 | http://localhost:3001             |
 | API       | 3000 | http://localhost:3000             |
 | Collector | 4000 | http://localhost:4000/metrics     |
+| Intelligence | — | internal only, no exposed port |
 | PostgreSQL| 5432 | postgres://localhost:5432/hermes  |
 | Redis     | 6379 | redis://localhost:6379            |
 
@@ -162,6 +163,26 @@ When running with Docker, services will be available at:
 │     UI      │   (queries)   │  (REST)   │                                         │    (Redis)   │
 └─────────────┘               └───────────┘                                         └──────────────┘
 ```
+
+## 📊 Performance
+
+Tested via Apache Bench and Vegeta against a local Docker Compose stack — full method and how to reproduce in [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
+
+| Metric | Value | Test |
+|---|---|---|
+| API read throughput | 1,191–1,442 req/s | `ab`, `/api/v1/metrics` and `/health` |
+| API P99 latency | 2.4 ms | Vegeta, 50 req/s sustained 30s |
+| Ingestion (Collector HTTP) | ~1,755 metrics/s | `POST /api/v1/metrics`, 0 rejected |
+| Ingestion (Redis Stream direct) | ~10,000 metrics/s | isolates the Collector's HTTP overhead |
+| **End-to-end sustained throughput** | **~282 metrics/s** | Processor drain rate — the real system ceiling |
+| Timeseries query (6h, 1min buckets) | 567 req/s, verified against real TimescaleDB data | `GET /api/v1/metrics/timeseries` |
+| Memory under load | +14–35 MB per service, no growth 30s after | `docker stats` |
+
+**The Processor is the bottleneck**, not the Collector or Redis: it drains the stream sequentially (10 messages per read, then a synchronous validate → persist → `XACK` per message). Verified the system holds up under sustained overload too: a 60s burst at ~3.5x the Processor's drain rate built a 60,000-message backlog with zero data loss, fully draining in ~3.8 minutes — at-least-once delivery held throughout, though there's currently no queue-depth metric or alert to surface that lag to an operator.
+
+This load test also caught and fixed a real bug: the metrics table's primary key used a millisecond-resolution client timestamp, so two distinct events for the same app+metric landing in the same millisecond silently overwrote each other (`ON CONFLICT DO UPDATE`) — reproduced a 72% silent data loss rate under realistic concurrency, fixed by keying on the Redis Stream message ID instead (verified 0% loss after). See `results/RESULTS.md` for the full repro/fix, and `BUILD_STATUS.md` for migration notes if you're running an existing deployment.
+
+Not yet tested: sustained load beyond ~1 minute, the authenticated path under load, or a backlog large enough that it never catches up. Full numbers, caveats, and the `ab`/Vegeta commands to reproduce them: [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
 
 ## 📊 Usage Examples
 
@@ -239,6 +260,8 @@ app.listen(3000, () => {
   console.log('Server started with Hermes observability');
 });
 ```
+
+**Not a Node.js app?** There's no SDK for other languages, but the Collector's `POST /api/v1/{metrics,traces,logs}` is plain HTTP+JSON — any language can send data directly. A full Go client exists at [`packages/agent-go`](packages/agent-go/README.md) (metrics, auto-instrumentation, tracing with cross-service `traceparent` propagation, logs — verified interoperable with this same UI/API).
 
 ### 2. Custom Metrics Types
 
@@ -371,12 +394,36 @@ curl -X POST http://localhost:3030/api/simulator/start
   - Event loop lag
   - Active handles
 
+### 🔗 Distributed Tracing
+- ✅ **Spans**: `startSpan()` for manual instrumentation, `httpTracingMiddleware()` for automatic per-request spans
+- ✅ **Cross-service propagation**: W3C `traceparent` header, via `instrumentAxios()` on outgoing calls
+- ✅ **Waterfall view**: parent/child span hierarchy with proportional timing in the UI
+- ✅ **API**: `GET /api/v1/traces` (list) and `GET /api/v1/traces/:traceId` (detail) — see [API.md](API.md#traces-endpoints)
+
+### 📝 Log Aggregation
+- ✅ **Explicit API**: `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` — not a `console.*` monkeypatch
+- ✅ **Trace correlation**: a log written inside an active span auto-carries its `traceId`/`spanId`, no extra API needed
+- ✅ **Substring search**: `pg_trgm`-indexed, so `ILIKE '%text%'` against stack traces/error codes stays fast
+- ✅ **API**: `GET /api/v1/logs?appName=&level=&search=&traceId=` — see [API.md](API.md#logs-endpoints)
+
+### 🗺️ Service Dependency Map
+- ✅ **Zero extra instrumentation**: derived entirely from existing `spans` data — a cross-service parent/child span pair *is* a dependency edge
+- ✅ **Layered graph view**: services laid out by call depth, node size/color by traffic and error rate
+- ✅ **Cross-linked**: click a service to jump to its filtered trace list
+- ✅ **API**: `GET /api/v1/service-map?from=&to=` — see [API.md](API.md#service-map-endpoint)
+
 ### 📊 Dashboard (UI)
 - ✅ Real-time visualization with Chart.js
 - ✅ Time range selection (15min, 1h, 6h, 24h, 7d, 30d)
 - ✅ Multiple chart types (line, area, bar)
 - ✅ Filters by application and metrics
 - ✅ Responsive interface with TailwindCSS
+
+### 🧠 Intelligence (Anomaly Detection + Performance Recommendations)
+- ✅ **Anomaly detection**: `IsolationForest` (scikit-learn) per `(app, metric)` series, fit on a baseline window and scored against a separate recent window — see [`packages/intelligence`](packages/intelligence/README.md) and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)
+- ✅ **Performance recommendations**: rule-based (not ML), derived from span latency/error-rate regressions and resource anomalies — deliberately explainable
+- ✅ **API**: `GET /api/v1/anomalies`, `GET /api/v1/recommendations`, `PUT /api/v1/recommendations/:id` — see [API.md](API.md#anomalies-endpoints)
+- ✅ **UI**: new Insights page
 
 ### 🚨 Alerts
 - ✅ Threshold-based alerts
@@ -543,7 +590,7 @@ docker-compose logs
 ### 📖 User Guides
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick installation guide (Docker + Manual)
 - **[API.md](API.md)** - Complete REST API reference with examples
-- **[DOCKER.md](DOCKER.md)** - Complete Docker guide (400+ lines)
+- **[DOCKER.md](DOCKER.md)** - Complete Docker guide
 
 ### 🎯 Examples
 - **[Demo Application](examples/demo-app/)** - E-commerce instrumented with Hermes SDK
@@ -554,6 +601,7 @@ docker-compose logs
 ### 📝 Technical Docs
 - **[MVP.md](docs/MVP.md)** - MVP scope and decisions
 - **[BUILD_STATUS.md](BUILD_STATUS.md)** - Build status and fixes
+- **[LOAD_TESTING.md](docs/LOAD_TESTING.md)** - Throughput/latency test roadmap and how to reproduce the numbers before they go in this README
 - **API Reference** - Available at `/api/docs` when running (in development)
 
 ## 🤝 Contributing

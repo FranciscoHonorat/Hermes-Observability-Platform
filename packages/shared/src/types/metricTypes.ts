@@ -28,6 +28,9 @@ export interface Metric {
     value: number;
     unit: MetricUnit;
     timestamp: number;
+    // Set server-side by the Collector's apiKeyAuth (never client-supplied
+    // — any value sent by a client is overwritten). See docs/adr/0002-*.md.
+    tenantId?: number;
     labels?: MetricLabel;
     metadata?: {
         source?: string;

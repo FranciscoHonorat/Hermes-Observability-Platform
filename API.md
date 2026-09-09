@@ -20,6 +20,15 @@ Complete REST API reference for the Hermes Observability Platform.
   - [Delete Alert](#delete-alert)
   - [Get Alert History](#get-alert-history)
 - [Applications Endpoints](#applications-endpoints)
+- [Traces Endpoints](#traces-endpoints)
+- [Logs Endpoints](#logs-endpoints)
+- [Service Map Endpoint](#service-map-endpoint)
+- [Anomalies Endpoints](#anomalies-endpoints)
+  - [List Anomalies](#list-anomalies)
+  - [Get Anomaly Details](#get-anomaly-details)
+- [Recommendations Endpoints](#recommendations-endpoints)
+  - [List Recommendations](#list-recommendations)
+  - [Update Recommendation Status](#update-recommendation-status)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
 
@@ -27,9 +36,18 @@ Complete REST API reference for the Hermes Observability Platform.
 
 ## Authentication
 
-🔓 **MVP não possui autenticação**. Todos os endpoints são públicos.
+- **Read endpoints** (`GET /api/v1/metrics*`, `GET /api/v1/applications*`, `GET /api/v1/alerts*`) are public.
+- **`POST` / `PUT` / `DELETE /api/v1/alerts`** require `Authorization: Bearer <token>`, matching the API's `API_ADMIN_TOKEN`. In local Docker Compose this is left empty and the check is skipped; it is required once `NODE_ENV=production`.
+- **Metric ingestion** (`POST` on the Collector, not this API — see [DOCKER.md](DOCKER.md#authentication)) requires an `x-api-key` header matching one of `COLLECTOR_API_KEYS`.
 
-> **v2+**: Será implementado API keys e JWT tokens.
+```bash
+curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "...": "..." }'
+```
+
+> Full user accounts / RBAC are still out of MVP scope (see `docs/MVP.md`); this is a single shared operator token, not per-user auth.
 
 ---
 
@@ -366,6 +384,7 @@ Cria um novo alerta.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High CPU Usage",
@@ -421,6 +440,7 @@ Mesmos campos do [Create Alert](#create-alert), mas todos opcionais. Apenas os c
 
 ```bash
 curl -X PUT http://localhost:3000/api/v1/alerts/1 \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "threshold": 90,
@@ -463,7 +483,8 @@ Remove um alerta.
 **Example Request:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/alerts/1
+curl -X DELETE http://localhost:3000/api/v1/alerts/1 \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN"
 ```
 
 **Example Response:**
@@ -575,6 +596,304 @@ curl "http://localhost:3000/api/v1/apps"
 
 ---
 
+## Traces Endpoints
+
+Distributed tracing: spans sent by `@hermes/agent`'s `httpTracingMiddleware()`/`startSpan()`/`instrumentAxios()` (see `packages/agent/src/tracing/`), ingested the same way as metrics (`POST /api/v1/traces` on the Collector — not this API), and queryable here.
+
+### List Traces
+
+Lists recent traces (one row per trace, aggregated across its spans) — not individual spans.
+
+**Endpoint:** `GET /api/v1/traces`
+
+**Query Parameters:**
+
+| Parameter     | Type   | Required | Description                                    |
+|--------------|--------|----------|--------------------------------------------------|
+| `serviceName`| string | No       | Only traces containing a span from this service |
+| `from`       | number | No       | Start of range, epoch ms                        |
+| `to`         | number | No       | End of range, epoch ms                           |
+| `limit`      | number | No       | Default 50                                        |
+| `offset`     | number | No       | Default 0                                          |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/traces?serviceName=checkout-api&limit=20"
+```
+
+**Example Response:**
+
+```json
+{
+  "traces": [
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "rootService": "checkout-api",
+      "rootOperation": "POST /checkout",
+      "startTime": 1788829268587,
+      "durationMs": 145,
+      "spanCount": 4,
+      "hasError": false
+    }
+  ],
+  "count": 1
+}
+```
+
+### Get Trace
+
+Every span belonging to one trace, ordered by start time — what the UI's waterfall view renders.
+
+**Endpoint:** `GET /api/v1/traces/:traceId`
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/traces/597e46e5a2221ca2ed5d0eaac686dcfd"
+```
+
+**Example Response:**
+
+```json
+{
+  "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+  "spans": [
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "44adaefb93c50af6",
+      "serviceName": "checkout-api",
+      "operationName": "POST /checkout",
+      "startTime": 1788829268587,
+      "durationMs": 145,
+      "status": "ok",
+      "attributes": { "http.method": "POST", "http.status_code": 200 }
+    },
+    {
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "f07c2f7e07d1ee9f",
+      "parentSpanId": "44adaefb93c50af6",
+      "serviceName": "checkout-api",
+      "operationName": "db.query orders.insert",
+      "startTime": 1788829268597,
+      "durationMs": 35,
+      "status": "ok",
+      "attributes": { "db.table": "orders" }
+    }
+  ]
+}
+```
+
+**Status Code:** `404` if no spans exist for `traceId`.
+
+---
+
+## Logs Endpoints
+
+Log aggregation: entries sent by `@hermes/agent`'s `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` (see `packages/agent/src/logging/`), ingested the same way as metrics/traces (`POST /api/v1/logs` on the Collector — not this API). An entry logged while a span is active (`startSpan()`/`httpTracingMiddleware()`) automatically carries that span's `traceId`/`spanId`, correlating it with a trace.
+
+### List Logs
+
+**Endpoint:** `GET /api/v1/logs`
+
+**Query Parameters:**
+
+| Parameter  | Type   | Required | Description                                                        |
+|-----------|--------|----------|----------------------------------------------------------------------|
+| `appName` | string | No       | Filter to one service                                               |
+| `level`   | string | No       | `debug`, `info`, `warn`, or `error`                                  |
+| `search`  | string | No       | Substring match against the message (trigram-indexed, not whole-word)|
+| `traceId` | string | No       | Only logs correlated with this trace                                 |
+| `from`    | number | No       | Start of range, epoch ms                                             |
+| `to`      | number | No       | End of range, epoch ms                                                 |
+| `limit`   | number | No       | Default 100                                                            |
+| `offset`  | number | No       | Default 0                                                               |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/logs?level=error&search=timeout&limit=50"
+```
+
+**Example Response:**
+
+```json
+{
+  "logs": [
+    {
+      "serviceName": "payment-service",
+      "level": "error",
+      "message": "connection timeout calling charge provider",
+      "timestamp": 1788829268647,
+      "traceId": "597e46e5a2221ca2ed5d0eaac686dcfd",
+      "spanId": "9e8cae997f2e0fc1",
+      "attributes": { "http.status_code": 502 }
+    }
+  ],
+  "count": 1
+}
+```
+
+There is no single-entry "get" endpoint — a log line is never "not found," only absent from a filtered list (`200` with `logs: []`).
+
+---
+
+## Service Map Endpoint
+
+Which services call which, derived from `spans` (a cross-service dependency edge is a parent/child span pair where the service differs — same-service parent/child spans are internal call structure, already shown in the trace waterfall, not a dependency). No separate ingestion — this is a read over trace data you're already sending.
+
+**Endpoint:** `GET /api/v1/service-map`
+
+**Query Parameters:**
+
+| Parameter | Type   | Required | Description       |
+|-----------|--------|----------|--------------------|
+| `from`    | number | No       | Start of range, epoch ms |
+| `to`      | number | No       | End of range, epoch ms   |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/service-map?from=1788820000000&to=1788830000000"
+```
+
+**Example Response:**
+
+```json
+{
+  "nodes": [
+    { "serviceName": "checkout-api", "callCount": 0, "errorCount": 0, "errorRate": 0 },
+    { "serviceName": "payment-service", "callCount": 5, "errorCount": 2, "errorRate": 0.4 }
+  ],
+  "edges": [
+    { "source": "checkout-api", "target": "payment-service", "callCount": 5, "errorCount": 2, "avgDurationMs": 80.5 }
+  ]
+}
+```
+
+`callCount`/`errorCount`/`errorRate` on a node are its **incoming** call stats (as a callee) — a pure caller with no incoming cross-service calls shows zeros, which is correct, not missing data.
+
+---
+
+## Anomalies Endpoints
+
+Written by `packages/intelligence`'s periodic sweep (see [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)), not user-editable — no auth required on these reads.
+
+### List Anomalies
+
+**Endpoint:** `GET /api/v1/anomalies`
+
+**Query Parameters:**
+
+| Parameter    | Type   | Required | Description                       | Example        |
+|--------------|--------|----------|------------------------------------|-----------------|
+| `appName`    | string | No       | Filter by application              | `api-gateway`   |
+| `metricName` | string | No       | Filter by metric                   | `system.cpu.usage` |
+| `severity`   | string | No       | `warning` or `critical`            | `critical`      |
+| `from`       | number | No       | Start of range, epoch ms           |                 |
+| `to`         | number | No       | End of range, epoch ms             |                 |
+| `limit`      | number | No       | Max rows (default 100)             | `50`            |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/v1/anomalies?appName=api-gateway&severity=critical"
+```
+
+**Example Response:**
+
+```json
+{
+  "anomalies": [
+    {
+      "id": 1,
+      "time": "2026-09-08T03:10:00.000Z",
+      "app_name": "api-gateway",
+      "metric_name": "system.cpu.usage",
+      "value": 97.4,
+      "expected_value": 12.1,
+      "anomaly_score": -0.21,
+      "severity": "critical",
+      "algorithm": "isolation_forest",
+      "detected_at": "2026-09-08T03:15:03.221Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### Get Anomaly Details
+
+**Endpoint:** `GET /api/v1/anomalies/:id`
+
+```bash
+curl "http://localhost:3000/api/v1/anomalies/1"
+```
+
+---
+
+## Recommendations Endpoints
+
+### List Recommendations
+
+**Endpoint:** `GET /api/v1/recommendations`
+
+**Query Parameters:**
+
+| Parameter  | Type   | Required | Description                              | Example   |
+|------------|--------|----------|-------------------------------------------|-----------|
+| `appName`  | string | No       | Filter by application                     |           |
+| `status`   | string | No       | `open`, `acknowledged`, or `dismissed`    | `open`    |
+| `category` | string | No       | `latency`, `error_rate`, or `resource`    | `latency` |
+
+**Example Response:**
+
+```json
+{
+  "recommendations": [
+    {
+      "id": 1,
+      "app_name": "api-gateway",
+      "category": "latency",
+      "severity": "warning",
+      "title": "Latency regression on GET /api/v1/movies",
+      "description": "p95 latency for GET /api/v1/movies is 420.3ms in the last hour, more than 2.0x its 24h baseline of 180.1ms.",
+      "related_operation_name": "GET /api/v1/movies",
+      "evidence": { "current_p95_ms": 420.3, "baseline_p95_ms": 180.1, "samples": 42 },
+      "status": "open",
+      "created_at": "2026-09-08T03:15:03.221Z",
+      "updated_at": "2026-09-08T03:15:03.221Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### Update Recommendation Status
+
+Acknowledge or dismiss a recommendation. Requires the admin bearer token, same as the mutating alert endpoints.
+
+**Endpoint:** `PUT /api/v1/recommendations/:id`
+
+**Body:**
+
+```json
+{ "status": "acknowledged" }
+```
+
+```bash
+curl -X PUT "http://localhost:3000/api/v1/recommendations/1" \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "acknowledged"}'
+```
+
+---
+
 ## Error Responses
 
 Todos os erros seguem o formato:
@@ -609,9 +928,14 @@ curl "http://localhost:3000/api/v1/metrics/timeseries?appName=test"
 
 ## Rate Limiting
 
-⚠️ **MVP não possui rate limiting**.
+Both the API and the Collector apply a per-IP limit (`express-rate-limit`), configurable via `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`:
 
-> **v2+**: Será implementado rate limiting de 1000 requests/minute por IP.
+| Service | Default |
+|---|---|
+| API | 300 requests / 60s |
+| Collector | 120 requests / 60s |
+
+A request over the limit gets `429` with `{ "error": "Too many requests" }`. Limits are per source IP, not per API key/token.
 
 ---
 
@@ -649,6 +973,7 @@ curl http://localhost:3000/health
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High Error Rate",
@@ -726,12 +1051,13 @@ async function getTimeseries(appName, metricName, hours = 24) {
   return data.timeseries;
 }
 
-// Create alert
-async function createAlert(alertConfig) {
+// Create alert (requires the API's admin token)
+async function createAlert(alertConfig, adminToken) {
   const response = await fetch('http://localhost:3000/api/v1/alerts', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`,
     },
     body: JSON.stringify(alertConfig)
   });

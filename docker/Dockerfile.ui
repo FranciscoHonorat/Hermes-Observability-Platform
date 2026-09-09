@@ -19,7 +19,11 @@ RUN npm run build --workspace=packages/ui
 FROM nginx:alpine
 
 COPY --from=builder /app/packages/ui/dist /usr/share/nginx/html
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# .template suffix: the base nginx image envsubst's this into conf.d at
+# startup. No ${VAR} substitutions needed anymore (see docs/adr/0002-*.md —
+# the old server-side admin bearer injection is gone), kept as a template
+# only for consistency in case one is needed again.
+COPY docker/nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 

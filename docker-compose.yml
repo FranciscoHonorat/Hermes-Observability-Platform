@@ -6,6 +6,9 @@ services:
     environment:
       POSTGRES_DB: hermes_observability
       POSTGRES_USER: hermes
+      # Dev-only credential for local Compose. Never reuse this value outside
+      # this file — production deployments (see render.yml) must generate or
+      # inject a real secret instead.
       POSTGRES_PASSWORD: hermes_dev_password
     ports:
       - "5432:5432"
@@ -49,6 +52,13 @@ services:
       REDIS_PORT: 6379
       COLLECTOR_PORT: 4000
       NODE_ENV: development
+      # No key configured -> unauthenticated dev requests are attributed to
+      # the fixed "default" tenant (id=1, seeded by docker/init-db.sql).
+      # Generate a real per-tenant key via the Admin UI (packages/admin) to
+      # test the auth path locally. See docs/adr/0002-*.md.
+      # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
     depends_on:
       redis:
         condition: service_healthy
@@ -80,6 +90,83 @@ services:
       - hermes-network
     restart: unless-stopped
 
+  # Hermes Users (self-service signup/login/logout/me)
+  users:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.users
+    container_name: hermes-users
+    ports:
+      - "4001:4001"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      USERS_PORT: 4001
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      # Dev-only secret signing every session JWT. Never reuse this value
+      # outside this file — every service that verifies a token (api, admin,
+      # users) must share the exact same secret. See docs/adr/0002-*.md.
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
+  # Hermes Admin (tenant-admin-only: manage users, manage Collector API keys)
+  admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admin
+    container_name: hermes-admin
+    ports:
+      - "4002:4002"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_PORT: 4002
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
+  # Hermes Intelligence (anomaly detection + performance recommendations)
+  intelligence:
+    build:
+      context: .
+      dockerfile: packages/intelligence/Dockerfile
+    container_name: hermes-intelligence
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hermes_observability
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_password
+      ANOMALY_CHECK_INTERVAL_SECONDS: "300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
   # Hermes API (serves data)
   api:
     build:
@@ -98,6 +185,13 @@ services:
       REDIS_PORT: 6379
       API_PORT: 3000
       NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+      # Same secret as users/admin — verifies the session cookie they issue.
+      # See docs/adr/0002-*.md.
+      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
+      # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,6 +213,8 @@ services:
       VITE_API_URL: http://localhost:3000
     depends_on:
       - api
+      - users
+      - admin
     networks:
       - hermes-network
     restart: unless-stopped

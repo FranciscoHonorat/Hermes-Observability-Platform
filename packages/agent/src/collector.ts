@@ -1,10 +1,12 @@
-import { Metric, MetricBatch, Logger } from '@hermes/shared';
+import { Metric, MetricBatch, Span, SpanBatch, LogEntry, LogBatch, Logger } from '@hermes/shared';
 import { MetricTransport } from './transport';
 import { loadConfig } from './config';
 import { collectCpuMetrics } from './metrics/cpu';
 import { collectMemoryMetrics } from './metrics/memory';
 import { collectEventLoopMetrics, collectUptimeMetric } from './metrics/eventloop';
 import { getHttpMetrics } from './metrics/http';
+import { getCompletedSpans } from './tracing/span';
+import { getCompletedLogs } from './logging/log';
 
 const logger = new Logger('MetricsCollector');
 
@@ -16,7 +18,7 @@ export class MetricsCollector {
 
     constructor(config?: Partial<ReturnType<typeof loadConfig>>) {
         this.config = { ...loadConfig(), ...config };
-        this.transport = new MetricTransport(this.config.collectorUrl);
+        this.transport = new MetricTransport(this.config.collectorUrl, this.config.apiKey);
         
         logger.info('Hermes Agent initialized', {
             service: this.config.serviceName,
@@ -99,6 +101,63 @@ export class MetricsCollector {
             await this.transport.sendMetrics(batch);
         } catch (error: any) {
             logger.error('Failed to collect and send metrics:', error.message);
+        }
+
+        await this.collectAndSendSpans();
+        await this.collectAndSendLogs();
+    }
+
+    /**
+     * Drena os spans concluídos desde o último flush e envia ao collector.
+     */
+    private async collectAndSendSpans(): Promise<void> {
+        try {
+            const spans = getCompletedSpans();
+
+            if (spans.length === 0) {
+                return;
+            }
+
+            const enrichedSpans: Span[] = spans.map(span => ({
+                ...span,
+                serviceName: this.config.serviceName
+            }));
+
+            const batch: SpanBatch = {
+                spans: enrichedSpans,
+                timestamp: Date.now()
+            };
+
+            await this.transport.sendSpans(batch);
+        } catch (error: any) {
+            logger.error('Failed to collect and send spans:', error.message);
+        }
+    }
+
+    /**
+     * Drena os logs concluídos desde o último flush e envia ao collector.
+     */
+    private async collectAndSendLogs(): Promise<void> {
+        try {
+            const logs = getCompletedLogs();
+
+            if (logs.length === 0) {
+                return;
+            }
+
+            const enrichedLogs: LogEntry[] = logs.map(entry => ({
+                ...entry,
+                serviceName: this.config.serviceName
+            }));
+
+            const batch: LogBatch = {
+                logs: enrichedLogs,
+                timestamp: Date.now()
+            };
+
+            await this.transport.sendLogs(batch);
+        } catch (error: any) {
+            logger.error('Failed to collect and send logs:', error.message);
         }
     }
 

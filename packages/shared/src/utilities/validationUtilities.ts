@@ -2,7 +2,15 @@
  * Validation utilities
  */
 
-import { Metric, MetricType, AlertRule } from '../types';
+import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus, LogEntry, LogEntryLevel, RecommendationStatus, RecommendationStatusUpdate } from '../types';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALERT_CONDITIONS: AlertRuleCondition[] = ['gt', 'lt', 'eq'];
+const TRACE_ID_RE = /^[0-9a-f]{32}$/;
+const SPAN_ID_RE = /^[0-9a-f]{16}$/;
+const SPAN_STATUSES: SpanStatus[] = ['ok', 'error'];
+const LOG_LEVELS: LogEntryLevel[] = ['debug', 'info', 'warn', 'error'];
+const RECOMMENDATION_STATUSES: RecommendationStatus[] = ['open', 'acknowledged', 'dismissed'];
 
 export class ValidationError extends Error {
     constructor(message: string) {
@@ -35,7 +43,91 @@ export const validateMetric = (metric: any): metric is Metric => {
     return true;
 }
 
-export const validateAlertRule = (rule: any): rule is AlertRule => {
+export const validateSpan = (span: any): span is Span => {
+    if (!span || typeof span !== 'object') {
+        throw new ValidationError('Span must be an object');
+    }
+
+    if (!TRACE_ID_RE.test(span.traceId)) {
+        throw new ValidationError('Span traceId must be a 32-char hex string');
+    }
+
+    if (!SPAN_ID_RE.test(span.spanId)) {
+        throw new ValidationError('Span spanId must be a 16-char hex string');
+    }
+
+    if (span.parentSpanId !== undefined && !SPAN_ID_RE.test(span.parentSpanId)) {
+        throw new ValidationError('Span parentSpanId must be a 16-char hex string');
+    }
+
+    if (!span.serviceName || typeof span.serviceName !== 'string') {
+        throw new ValidationError('Span serviceName must be a string');
+    }
+
+    if (!span.operationName || typeof span.operationName !== 'string') {
+        throw new ValidationError('Span operationName must be a string');
+    }
+
+    if (!span.startTime || typeof span.startTime !== 'number') {
+        throw new ValidationError('Span startTime must be a valid number');
+    }
+
+    if (typeof span.duration !== 'number' || isNaN(span.duration) || span.duration < 0) {
+        throw new ValidationError('Span duration must be a non-negative number');
+    }
+
+    if (!SPAN_STATUSES.includes(span.status)) {
+        throw new ValidationError(`Span status must be one of: ${SPAN_STATUSES.join(', ')}`);
+    }
+
+    return true;
+};
+
+export const validateLogEntry = (log: any): log is LogEntry => {
+    if (!log || typeof log !== 'object') {
+        throw new ValidationError('Log entry must be an object');
+    }
+
+    if (!log.serviceName || typeof log.serviceName !== 'string') {
+        throw new ValidationError('Log entry serviceName must be a string');
+    }
+
+    if (!LOG_LEVELS.includes(log.level)) {
+        throw new ValidationError(`Log entry level must be one of: ${LOG_LEVELS.join(', ')}`);
+    }
+
+    if (!log.message || typeof log.message !== 'string') {
+        throw new ValidationError('Log entry message must be a string');
+    }
+
+    if (!log.timestamp || typeof log.timestamp !== 'number') {
+        throw new ValidationError('Log entry timestamp must be a valid number');
+    }
+
+    if (log.traceId !== undefined && !TRACE_ID_RE.test(log.traceId)) {
+        throw new ValidationError('Log entry traceId must be a 32-char hex string');
+    }
+
+    if (log.spanId !== undefined && !SPAN_ID_RE.test(log.spanId)) {
+        throw new ValidationError('Log entry spanId must be a 16-char hex string');
+    }
+
+    return true;
+};
+
+function validateEmailRecipients(value: any): asserts value is string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ValidationError('email_recipients must be a non-empty array');
+  }
+  for (const recipient of value) {
+    if (typeof recipient !== 'string' || !EMAIL_RE.test(recipient)) {
+      throw new ValidationError(`email_recipients contains an invalid address: ${recipient}`);
+    }
+  }
+}
+
+/** Full validation for creating a new alert rule (POST). */
+export const validateAlertRule = (rule: any): rule is AlertRuleInput => {
   if (!rule || typeof rule !== 'object') {
     throw new ValidationError('Alert rule must be an object');
   }
@@ -44,16 +136,80 @@ export const validateAlertRule = (rule: any): rule is AlertRule => {
     throw new ValidationError('Alert rule name is required');
   }
 
-  if (!rule.metric || typeof rule.metric !== 'string') {
-    throw new ValidationError('Alert rule metric is required');
+  if (!rule.metric_name || typeof rule.metric_name !== 'string') {
+    throw new ValidationError('Alert rule metric_name is required');
   }
 
-  if (!rule.condition || typeof rule.condition !== 'object') {
-    throw new ValidationError('Alert rule condition is required');
+  if (!ALERT_CONDITIONS.includes(rule.condition)) {
+    throw new ValidationError(`Alert rule condition must be one of: ${ALERT_CONDITIONS.join(', ')}`);
   }
 
-  if (typeof rule.condition.threshold !== 'number') {
+  if (typeof rule.threshold !== 'number' || isNaN(rule.threshold)) {
     throw new ValidationError('Alert rule threshold must be a number');
+  }
+
+  if (rule.app_name !== undefined && rule.app_name !== null && typeof rule.app_name !== 'string') {
+    throw new ValidationError('Alert rule app_name must be a string');
+  }
+
+  validateEmailRecipients(rule.email_recipients);
+
+  if (rule.enabled !== undefined && typeof rule.enabled !== 'boolean') {
+    throw new ValidationError('Alert rule enabled must be a boolean');
+  }
+
+  return true;
+};
+
+/**
+ * Partial validation for updating an existing alert rule (PUT), where any
+ * field may be omitted (left unchanged via COALESCE) but present fields
+ * must still be well-formed.
+ */
+export const validateAlertRuleUpdate = (rule: any): rule is Partial<AlertRuleInput> => {
+  if (!rule || typeof rule !== 'object') {
+    throw new ValidationError('Alert rule update must be an object');
+  }
+
+  if (rule.name !== undefined && (typeof rule.name !== 'string' || !rule.name)) {
+    throw new ValidationError('Alert rule name must be a non-empty string');
+  }
+
+  if (rule.metric_name !== undefined && (typeof rule.metric_name !== 'string' || !rule.metric_name)) {
+    throw new ValidationError('Alert rule metric_name must be a non-empty string');
+  }
+
+  if (rule.condition !== undefined && !ALERT_CONDITIONS.includes(rule.condition)) {
+    throw new ValidationError(`Alert rule condition must be one of: ${ALERT_CONDITIONS.join(', ')}`);
+  }
+
+  if (rule.threshold !== undefined && (typeof rule.threshold !== 'number' || isNaN(rule.threshold))) {
+    throw new ValidationError('Alert rule threshold must be a number');
+  }
+
+  if (rule.app_name !== undefined && rule.app_name !== null && typeof rule.app_name !== 'string') {
+    throw new ValidationError('Alert rule app_name must be a string');
+  }
+
+  if (rule.email_recipients !== undefined) {
+    validateEmailRecipients(rule.email_recipients);
+  }
+
+  if (rule.enabled !== undefined && typeof rule.enabled !== 'boolean') {
+    throw new ValidationError('Alert rule enabled must be a boolean');
+  }
+
+  return true;
+};
+
+/** Validation for updating a recommendation's status (PUT) — the only mutable field. */
+export const validateRecommendationStatusUpdate = (body: any): body is RecommendationStatusUpdate => {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('Recommendation status update must be an object');
+  }
+
+  if (!RECOMMENDATION_STATUSES.includes(body.status)) {
+    throw new ValidationError(`Recommendation status must be one of: ${RECOMMENDATION_STATUSES.join(', ')}`);
   }
 
   return true;

@@ -19,4 +19,7 @@ COPY tsconfig.json ./
 RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=packages/processor
 
+RUN chown -R node:node /app
+USER node
+
 CMD ["node", "packages/processor/dist/index.js"]

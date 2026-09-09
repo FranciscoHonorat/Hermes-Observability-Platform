@@ -42,6 +42,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
                 // Validar métrica
                 validateMetric(metric);
 
+                // tenantId is always overwritten here, never trusted from
+                // the client — apiKeyAuth (mounted in front of this route)
+                // is what resolves it. See docs/adr/0002-*.md.
+                metric.tenantId = req.tenantId;
+
                 // Adicionar ao Redis Stream
                 await addMetricToStream(metric);
                 accepted++;

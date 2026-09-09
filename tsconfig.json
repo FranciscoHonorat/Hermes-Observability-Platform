@@ -21,7 +21,9 @@
       "@hermes/agent/*": ["packages/agent/src/*"],
       "@hermes/collector/*": ["packages/collector/src/*"],
       "@hermes/processor/*": ["packages/processor/src/*"],
-      "@hermes/api/*": ["packages/api/src/*"]
+      "@hermes/api/*": ["packages/api/src/*"],
+      "@hermes/users/*": ["packages/users/src/*"],
+      "@hermes/admin/*": ["packages/admin/src/*"]
     }
   },
   "include": ["packages/*/src/**/*"],
@@ -31,6 +33,8 @@
     { "path": "packages/agent" },
     { "path": "packages/collector" },
     { "path": "packages/processor" },
-    { "path": "packages/api" }
+    { "path": "packages/api" },
+    { "path": "packages/users" },
+    { "path": "packages/admin" }
   ]
 }

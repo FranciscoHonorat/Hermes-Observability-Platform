@@ -17,7 +17,8 @@ function sendMetrics(metrics) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Length': data.length
+                'Content-Length': data.length,
+                ...(process.env.HERMES_API_KEY ? { 'x-api-key': process.env.HERMES_API_KEY } : {})
             }
         };
 

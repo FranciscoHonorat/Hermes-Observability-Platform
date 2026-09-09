@@ -7,7 +7,8 @@ export const loadConfig = (): AgentConfig => {
         serviceName: process.env.HERMES_SERVICE_NAME || 'unknown-service',
         environment: process.env.HERMES_ENVIRONMENT || 'development',
         host: process.env.HOSTNAME || require('os').hostname(),
-        labels: {}
+        labels: {},
+        apiKey: process.env.HERMES_API_KEY
     };
 
     // Parse custom labels from env

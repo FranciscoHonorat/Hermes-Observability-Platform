@@ -4,8 +4,10 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { format } from 'date-fns';
+import { useIsAdmin } from '../context/AuthContext';
 
 const Alerts = () => {
+  const isAdmin = useIsAdmin();
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [history, setHistory] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,17 +106,19 @@ const Alerts = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Alerts</h1>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          {showCreateForm ? 'Cancel' : 'Create Rule'}
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 transition-colors"
+          >
+            {showCreateForm ? 'Cancel' : 'Create Rule'}
+          </button>
+        )}
       </div>
 
       {error && <ErrorMessage message={error} onRetry={loadData} />}
 
-      {showCreateForm && (
+      {isAdmin && showCreateForm && (
         <Card title="Create Alert Rule">
           <form onSubmit={handleCreateRule} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -277,20 +281,22 @@ const Alerts = () => {
                           <p className="mt-1 text-xs text-gray-500">{rule.description}</p>
                         )}
                       </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleToggleRule(rule.id, rule.enabled)}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                        >
-                          {rule.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRule(rule.id)}
-                          className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleToggleRule(rule.id, rule.enabled)}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                          >
+                            {rule.enabled ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRule(rule.id)}
+                            className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
