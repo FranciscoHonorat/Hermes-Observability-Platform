@@ -20,11 +20,11 @@ Complete observability system for Node.js applications, focusing on metrics, das
 - ✅ Real-time cache and streaming (Redis)
 
 ### ❌ Out of MVP (v2+)
-- ❌ Complex Distributed Tracing
-- ❌ Machine Learning / Anomaly Detection
-- ❌ Multi-tenant Architecture
 - ❌ Advanced Query Language
 - ❌ Custom Plugins System
+- ❌ SSO / fine-grained permissions matrix (beyond the current `admin`/`viewer` roles)
+
+> Distributed tracing, anomaly detection, and multi-tenancy with RBAC were originally scoped out of the MVP but have since been implemented — see [Features](#-features) below and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md) / [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md).
 
 ## 🛠 Tech Stack
 
@@ -49,13 +49,17 @@ Complete observability system for Node.js applications, focusing on metrics, das
 hermes-observability/
 ├── packages/
 │   ├── agent/          # SDK to instrument Node.js applications
-│   ├── collector/      # Receives metrics from applications
-│   ├── processor/      # Processes and persists metrics
-│   ├── api/           # REST API for querying metrics
-│   ├── ui/            # React Dashboard
-│   └── shared/        # Shared code (types, utils)
+│   ├── agent-go/       # Go client (metrics, tracing, logs)
+│   ├── collector/      # Receives metrics/traces/logs from applications
+│   ├── processor/      # Processes metrics, persists data, runs the alert engine
+│   ├── api/            # REST API for querying metrics, traces, logs, alerts
+│   ├── users/          # Self-service signup/login/logout/me (JWT auth)
+│   ├── admin/          # Tenant-admin-only user & API key management
+│   ├── intelligence/   # Python service: anomaly detection + recommendations
+│   ├── ui/             # React Dashboard
+│   └── shared/         # Shared code (types, utils)
 ├── docker/            # Dockerfiles and configurations
-├── docs/             # Documentation
+├── docs/             # Documentation (incl. docs/adr/ decision records)
 └── docker-compose.yml
 ```
 
@@ -140,6 +144,8 @@ When running with Docker, services will be available at:
 |-----------|------|-----------------------------------|
 | UI        | 3001 | http://localhost:3001             |
 | API       | 3000 | http://localhost:3000             |
+| Users (auth) | 4001 | http://localhost:4001/api/v1/auth |
+| Admin     | 4002 | http://localhost:4002/api/v1/admin |
 | Collector | 4000 | http://localhost:4000/metrics     |
 | Intelligence | — | internal only, no exposed port |
 | PostgreSQL| 5432 | postgres://localhost:5432/hermes  |
@@ -152,16 +158,20 @@ When running with Docker, services will be available at:
 ```
 ┌─────────────┐     HTTP      ┌───────────┐     Redis      ┌───────────┐     SQL     ┌──────────────┐
 │   Node.js   │  ──────────►  │ Collector │  ──────────►  │ Processor │  ────────►  │ PostgreSQL + │
-│ Application │   (metrics)   │  (HTTP)   │   (Stream)    │  (Worker) │             │  TimescaleDB │
-└─────────────┘               └───────────┘               └───────────┘             └──────────────┘
+│ Application │  (x-api-key)  │  (HTTP)   │   (Stream)    │  (Worker) │             │  TimescaleDB │
+└─────────────┘               └───────────┘               └───────────┘             └──────┬───────┘
                                     ▲                                                        │
-                                    │                                                        │
-                               [@hermes/agent]                                               │
-                                                                                             ▼
-┌─────────────┐     HTTP      ┌───────────┐                                         ┌──────────────┐
-│   Browser   │  ◄──────────  │    API    │  ◄──────────────────────────────────  │    Cache     │
-│     UI      │   (queries)   │  (REST)   │                                         │    (Redis)   │
-└─────────────┘               └───────────┘                                         └──────────────┘
+                                    │                                                        ▼
+                          [@hermes/agent(-go)]                                      ┌──────────────┐
+                                                                                     │ Intelligence │
+┌─────────────┐     HTTP      ┌───────────┐                                        │  (anomalies) │
+│   Browser   │  ◄──────────  │    API    │  ◄─────────────────────────────────┐  └──────────────┘
+│     UI      │  (JWT cookie) │  (REST)   │                                     │
+└──────┬──────┘               └───────────┘                                     │
+       │         ┌───────────┐        ┌───────────┐                            │
+       └────────►│   Users   │        │   Admin   │────────────────────────────┘
+                  │  (auth)   │        │ (keys/RBAC)│      Cache/keys (Redis)
+                  └───────────┘        └───────────┘
 ```
 
 ## 📊 Performance
@@ -334,9 +344,13 @@ curl "http://localhost:3000/api/metrics/aggregated?appName=my-service&metricName
 ### 4. Configuring Alerts
 
 **Create Alert via API:**
+
+Mutating alert routes require an authenticated `admin` session — sign up/log in via `packages/users` first (the UI's Login/Signup pages handle this and set the auth cookie automatically). For scripted access, pass the JWT as a bearer token instead:
+
 ```bash
 curl -X POST http://localhost:3000/api/alerts \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "name": "High Error Rate",
     "appName": "my-service",
@@ -431,6 +445,14 @@ curl -X POST http://localhost:3030/api/simulator/start
 - ✅ Configurable time window
 - ✅ Triggered alert history
 - ✅ Automatic evaluation every 1 minute
+
+### 🔐 Authentication & Multi-tenancy
+- ✅ **Accounts**: self-service signup/login/logout via [`packages/users`](packages/users) — JWT issued as an httpOnly cookie, so it's never exposed to page JavaScript
+- ✅ **Roles**: `admin` (mutate alerts, manage users and API keys) and `viewer` (read-only)
+- ✅ **Tenant isolation**: every table carries `tenant_id`; every API read/write is scoped to the caller's tenant
+- ✅ **API key management**: [`packages/admin`](packages/admin) issues/revokes per-tenant Collector API keys (`x-api-key`), cached in Redis for fast lookup on the ingestion hot path
+- ✅ **Dev-mode default**: unauthenticated Collector requests are attributed to a fixed `default` tenant, so `docker compose up` still works with zero configuration
+- 📖 See [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md) for the full design rationale
 
 ### 💾 Storage & Performance
 - ✅ **TimescaleDB**: Optimized for time-series
