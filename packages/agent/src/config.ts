@@ -11,7 +11,6 @@ export const loadConfig = (): AgentConfig => {
         apiKey: process.env.HERMES_API_KEY
     };
 
-    // Parse custom labels from env
     const customLabels = process.env.HERMES_LABELS;
     if (customLabels) {
         customLabels.split(',').forEach(pair => {

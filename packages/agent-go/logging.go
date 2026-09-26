@@ -2,9 +2,6 @@ package hermes
 
 import "context"
 
-// Log records a log entry, auto-correlating it with the trace/span active
-// in ctx (if any) — mirrors packages/agent/src/logging/log.ts's behavior,
-// via explicit ctx instead of Node's ambient AsyncLocalStorage.
 func (c *Client) Log(ctx context.Context, level LogLevel, message string, attributes map[string]any) {
 	entry := LogEntry{
 		Level:      level,
@@ -35,8 +32,6 @@ func (c *Client) Error(ctx context.Context, message string, attributes map[strin
 	c.Log(ctx, LogError, message, attributes)
 }
 
-// CaptureException logs an error-level entry with the error's message
-// folded into attributes, mirroring @hermes/agent's captureException.
 func (c *Client) CaptureException(ctx context.Context, err error, attributes map[string]any) {
 	if attributes == nil {
 		attributes = make(map[string]any)

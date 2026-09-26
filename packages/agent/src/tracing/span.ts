@@ -30,9 +30,6 @@ function createHandle(
     const spanAttributes: Record<string, string | number | boolean> = { ...attributes };
     let ended = false;
 
-    // Enters this span into the current async context (not a callback-scoped
-    // one) so any nested startSpan() call in the same call chain — no extra
-    // wrapping required — automatically parents to it.
     spanContextStorage.enterWith({ traceId, spanId });
 
     return {
@@ -48,7 +45,7 @@ function createHandle(
                 traceId,
                 spanId,
                 parentSpanId,
-                serviceName: '', // filled in by MetricsCollector.collectAndSend() before sending
+                serviceName: '',
                 operationName,
                 startTime,
                 duration: Date.now() - startTime,
@@ -59,10 +56,6 @@ function createHandle(
     };
 }
 
-/**
- * Starts a new span, parented to whatever span is currently active in this
- * async call chain (if any), or the start of a brand new trace if not.
- */
 export function startSpan(
     operationName: string,
     attributes?: Record<string, string | number | boolean>
@@ -72,11 +65,6 @@ export function startSpan(
     return createHandle(traceId, generateSpanId(), parent?.spanId, operationName, attributes);
 }
 
-/**
- * Starts a span with IDs already resolved by the caller (e.g. continuing a
- * trace from an incoming `traceparent` header). Used by
- * httpTracingMiddleware for the request's root/entry span.
- */
 export function startSpanWithIds(
     traceId: string,
     parentSpanId: string | undefined,

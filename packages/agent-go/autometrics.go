@@ -7,11 +7,6 @@ import (
 
 var processStart = time.Now()
 
-// collectAutoMetrics gathers stdlib-only runtime metrics — no gopsutil or
-// other third-party dependency, matching the rest of this project's
-// minimal-dependency stance. Go has no direct equivalents to Node's
-// system-wide os.cpus()-based CPU% or "event loop lag"; goroutine count and
-// GC pause time are the idiomatic Go-native health signals used instead.
 func (c *Client) collectAutoMetrics() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)

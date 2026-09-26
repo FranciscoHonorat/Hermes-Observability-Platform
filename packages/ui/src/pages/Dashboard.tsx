@@ -46,15 +46,10 @@ const Dashboard = () => {
         ? subDays(new Date(), Math.floor(range.hours / 24)).toISOString()
         : subHours(new Date(), range.hours).toISOString();
 
-      // Determine interval based on time range
       let interval = '1 minute';
       if (range.hours > 24) interval = '1 hour';
       if (range.hours > 168) interval = '1 day';
 
-      // Must match the metric names @hermes/agent actually emits
-      // (packages/agent/src/metrics/{cpu,memory,eventloop}.ts), not a
-      // guessed naming convention — these three were wrong (cpu_usage_percent
-      // etc.) and silently returned empty timeseries for any real app.
       const metricNames = [
         'system.cpu.usage',
         'system.memory.usage',

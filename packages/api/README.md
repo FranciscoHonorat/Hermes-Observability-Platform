@@ -1,26 +1,26 @@
 # Hermes API
 
-REST API para consultar métricas, aplicações e gerenciar alertas do Hermes Observability.
+REST API to query metrics, applications, and manage alerts for Hermes Observability.
 
-## 📋 Funcionalidades
+## Features
 
-- ✅ Consulta de métricas com filtros avançados
-- ✅ Dados agregados em time-series
-- ✅ Gerenciamento de aplicações
-- ✅ CRUD completo de alertas
-- ✅ Histórico de alertas
-- ✅ CORS configurável
-- ✅ Logging estruturado
+- Query metrics with advanced filters
+- Aggregated time-series data
+- Application management
+- Full alert CRUD
+- Alert history
+- Configurable CORS
+- Structured logging
 
-## 🚀 Como Usar
+## How to Use
 
-### Instalação
+### Installation
 
 ```bash
 npm install
 ```
 
-### Desenvolvimento
+### Development
 
 ```bash
 npm run dev
@@ -32,15 +32,15 @@ npm run dev
 npm run build
 ```
 
-### Produção
+### Production
 
 ```bash
 npm start
 ```
 
-## 🔧 Configuração
+## Configuration
 
-Variáveis de ambiente:
+Environment variables:
 
 ```env
 API_PORT=3000
@@ -54,22 +54,22 @@ CORS_ORIGIN=*
 NODE_ENV=development
 ```
 
-## 📡 Endpoints da API
+## API Endpoints
 
-### **Métricas**
+### **Metrics**
 
 #### `GET /api/v1/metrics`
-Buscar métricas com filtros.
+Fetch metrics with filters.
 
 **Query Parameters:**
-- `appName` (optional): Nome da aplicação
-- `metricName` (optional): Nome da métrica
-- `from` (optional): Timestamp inicial (ms)
-- `to` (optional): Timestamp final (ms)
-- `limit` (optional): Limite de resultados (default: 1000)
-- `offset` (optional): Offset para paginação (default: 0)
+- `appName` (optional): Application name
+- `metricName` (optional): Metric name
+- `from` (optional): Start timestamp (ms)
+- `to` (optional): End timestamp (ms)
+- `limit` (optional): Result limit (default: 1000)
+- `offset` (optional): Offset for pagination (default: 0)
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3000/api/v1/metrics?appName=my-api&metricName=cpu.usage&limit=100"
 ```
@@ -94,16 +94,16 @@ curl "http://localhost:3000/api/v1/metrics?appName=my-api&metricName=cpu.usage&l
 ```
 
 #### `GET /api/v1/metrics/timeseries`
-Dados agregados por tempo (usa TimescaleDB time_bucket).
+Time-aggregated data (uses TimescaleDB time_bucket).
 
 **Query Parameters:**
-- `appName` (required): Nome da aplicação
-- `metricName` (required): Nome da métrica
-- `from` (required): Timestamp inicial (ms)
-- `to` (required): Timestamp final (ms)
-- `interval` (optional): Intervalo de agregação (default: '1 minute')
+- `appName` (required): Application name
+- `metricName` (required): Metric name
+- `from` (required): Start timestamp (ms)
+- `to` (required): End timestamp (ms)
+- `interval` (optional): Aggregation interval (default: '1 minute')
 
-**Exemplo:**
+**Example:**
 ```bash
 curl "http://localhost:3000/api/v1/metrics/timeseries?appName=my-api&metricName=cpu.usage&from=1640995200000&to=1641081600000&interval=5 minutes"
 ```
@@ -128,23 +128,23 @@ curl "http://localhost:3000/api/v1/metrics/timeseries?appName=my-api&metricName=
 ```
 
 #### `GET /api/v1/metrics/names`
-Listar nomes de métricas disponíveis.
+List available metric names.
 
 **Query Parameters:**
-- `appName` (optional): Filtrar por aplicação
+- `appName` (optional): Filter by application
 
 #### `GET /api/v1/metrics/latest`
-Últimos valores de cada métrica.
+Latest value of each metric.
 
 **Query Parameters:**
-- `appName` (optional): Filtrar por aplicação
+- `appName` (optional): Filter by application
 
 ---
 
-### **Aplicações**
+### **Applications**
 
 #### `GET /api/v1/applications`
-Listar todas as aplicações registradas.
+List all registered applications.
 
 **Response:**
 ```json
@@ -163,23 +163,23 @@ Listar todas as aplicações registradas.
 ```
 
 #### `GET /api/v1/applications/:name`
-Detalhes de uma aplicação específica.
+Details of a specific application.
 
 #### `GET /api/v1/applications/:name/metrics`
-Métricas de uma aplicação específica.
+Metrics of a specific application.
 
 **Query Parameters:**
-- `limit` (optional): Limite de resultados (default: 100)
+- `limit` (optional): Result limit (default: 100)
 
 ---
 
-### **Alertas**
+### **Alerts**
 
 #### `GET /api/v1/alerts`
-Listar todos os alertas.
+List all alerts.
 
 **Query Parameters:**
-- `enabled` (optional): Filtrar por status (true/false)
+- `enabled` (optional): Filter by status (true/false)
 
 **Response:**
 ```json
@@ -204,7 +204,7 @@ Listar todos os alertas.
 ```
 
 #### `POST /api/v1/alerts`
-Criar novo alerta.
+Create a new alert.
 
 **Request Body:**
 ```json
@@ -226,23 +226,23 @@ Criar novo alerta.
 - `eq`: Equal (=)
 
 #### `PUT /api/v1/alerts/:id`
-Atualizar alerta existente.
+Update an existing alert.
 
 #### `DELETE /api/v1/alerts/:id`
-Deletar alerta.
+Delete an alert.
 
 #### `GET /api/v1/alerts/:id/history`
-Histórico de disparos do alerta.
+History of alert triggers.
 
 **Query Parameters:**
-- `limit` (optional): Limite de resultados (default: 100)
+- `limit` (optional): Result limit (default: 100)
 
 ---
 
 ### **Health Check**
 
 #### `GET /health`
-Verificar status da API.
+Check API status.
 
 **Response:**
 ```json
@@ -256,7 +256,7 @@ Verificar status da API.
 
 ---
 
-## 🏗️ Arquitetura
+## Architecture
 
 ```
 ┌─────────────┐
@@ -278,10 +278,9 @@ Verificar status da API.
 └─────────────┘
 ```
 
-## 📊 Exemplo de Uso com Fetch
+## Fetch Usage Example
 
 ```javascript
-// Buscar métricas
 const response = await fetch(
   'http://localhost:3000/api/v1/metrics/timeseries?'
   + new URLSearchParams({
@@ -296,7 +295,6 @@ const response = await fetch(
 const data = await response.json();
 console.log(data.timeseries);
 
-// Criar alerta
 const alert = await fetch('http://localhost:3000/api/v1/alerts', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -312,7 +310,7 @@ const alert = await fetch('http://localhost:3000/api/v1/alerts', {
 console.log(await alert.json());
 ```
 
-## 🐳 Docker
+## Docker
 
 ```bash
 docker build -f docker/Dockerfile.api -t hermes-api .
@@ -322,25 +320,25 @@ docker run -p 3000:3000 \
   hermes-api
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
-### Erro: Failed to connect to database
+### Error: Failed to connect to database
 
-Verifique se o PostgreSQL está rodando:
+Check that PostgreSQL is running:
 ```bash
 psql -h localhost -U hermes -d hermes
 ```
 
 ### CORS Error
 
-Configure a variável `CORS_ORIGIN`:
+Set the `CORS_ORIGIN` variable:
 ```bash
 CORS_ORIGIN=http://localhost:3001 npm start
 ```
 
 ### Slow Queries
 
-A API usa TimescaleDB para otimização. Certifique-se que:
-- A tabela `metrics` é uma hypertable
-- Índices estão criados corretamente
-- `time_bucket` está sendo usado para agregações
+The API uses TimescaleDB for optimization. Make sure that:
+- The `metrics` table is a hypertable
+- Indexes are created correctly
+- `time_bucket` is being used for aggregations

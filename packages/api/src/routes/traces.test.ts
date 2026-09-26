@@ -103,6 +103,6 @@ describe('GET /api/v1/traces/:traceId', () => {
     query.mockResolvedValueOnce({ rows: [] });
     await request(app).get(`/api/v1/traces/${'a'.repeat(32)}`).set('Authorization', auth());
     const [, params] = query.mock.calls[0];
-    expect(params).toEqual(['a'.repeat(32), 1]); // [traceId, TEST_TENANT_ID]
+    expect(params).toEqual(['a'.repeat(32), 1]);
   });
 });

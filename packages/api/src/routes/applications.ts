@@ -5,7 +5,6 @@ import { Logger } from '@hermes/shared';
 const router = Router();
 const logger = new Logger('ApplicationsAPI');
 
-// GET /api/v1/applications - Listar todas as aplicações
 router.get('/', async (req: Request, res: Response) => {
     try {
         const query = `
@@ -35,7 +34,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/applications/:name - Detalhes de uma aplicação
 router.get('/:name', async (req: Request, res: Response) => {
     try {
         const { name } = req.params;
@@ -65,7 +63,6 @@ router.get('/:name', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/applications/:name/metrics - Métricas de uma aplicação
 router.get('/:name/metrics', async (req: Request, res: Response) => {
     try {
         const { name } = req.params;

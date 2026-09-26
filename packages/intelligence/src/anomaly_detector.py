@@ -1,12 +1,3 @@
-"""Anomaly detection — IsolationForest per (app_name, metric_name) series.
-
-The scoring logic (`detect_anomalies`) is a pure function, independent of
-Postgres, so it's unit-testable with synthetic arrays (see
-tests/test_anomaly_detector.py). It fits on a `baseline` window only and
-scores a separate `recent` window against that fitted model — never scoring
-a point against a baseline that includes itself, which would let one
-outlier both define and pass its own threshold.
-"""
 import logging
 from dataclasses import dataclass
 
@@ -18,14 +9,6 @@ from .db import execute, query
 
 logger = logging.getLogger("intelligence.anomaly_detector")
 
-# |value - baseline_mean| / baseline_std beyond this is 'critical' rather
-# than 'warning'. Severity is graded this way, not from IsolationForest's
-# own decision_function score, because that score saturates for a single
-# (univariate) feature: once a point falls outside the range the model was
-# trained on, every split in every tree routes it the same way regardless
-# of *how far* outside it is, so a barely-outlying point and a wildly-
-# outlying point end up with the same score. The z-score against the
-# baseline's own distribution doesn't have that ceiling.
 CRITICAL_ZSCORE_THRESHOLD = 5.0
 
 
@@ -35,7 +18,7 @@ class AnomalyResult:
     value: float
     expected_value: float
     score: float
-    severity: str  # 'warning' | 'critical'
+    severity: str
 
 
 def detect_anomalies(
@@ -44,9 +27,6 @@ def detect_anomalies(
     min_samples: int = 30,
     contamination: float = 0.05,
 ) -> list[AnomalyResult]:
-    """Fit IsolationForest on `baseline_values`, score `recent_values`
-    against it. Returns one AnomalyResult per recent point flagged as an
-    outlier (index refers to position within recent_values)."""
     if len(baseline_values) < min_samples or not recent_values:
         return []
 
@@ -106,9 +86,6 @@ def _series(conn, tenant_id: int, app_name: str, metric_name: str) -> list[dict]
 
 
 def run_anomaly_sweep(conn) -> int:
-    """Runs one detection pass across every (tenant_id, app_name,
-    metric_name) triple with recent data. Returns the number of new
-    anomalies written."""
     written = 0
     for pair in _series_pairs(conn):
         tenant_id, app_name, metric_name = pair["tenant_id"], pair["app_name"], pair["metric_name"]

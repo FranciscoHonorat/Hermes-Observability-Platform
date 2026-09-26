@@ -6,7 +6,6 @@ import { cacheApiKey, uncacheApiKey } from '../redis';
 const router = Router();
 const logger = new Logger('AdminApiKeysAPI');
 
-// GET /api/v1/admin/api-keys - Listar chaves do tenant do chamador (nunca a chave crua)
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -20,7 +19,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/v1/admin/api-keys - Gerar uma nova chave (mostrada em texto puro só aqui, uma vez)
 router.post('/', async (req: Request, res: Response) => {
     try {
         const { label } = req.body;
@@ -46,7 +44,6 @@ router.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE /api/v1/admin/api-keys/:id - Revogar uma chave
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

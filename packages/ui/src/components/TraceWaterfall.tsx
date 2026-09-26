@@ -10,7 +10,7 @@ function computeDepths(spans: Span[]): Map<string, number> {
 
   const depthOf = (spanId: string, seen: Set<string> = new Set()): number => {
     if (depths.has(spanId)) return depths.get(spanId)!;
-    if (seen.has(spanId)) return 0; // defensive: guards against a malformed parent cycle
+    if (seen.has(spanId)) return 0;
     seen.add(spanId);
 
     const span = bySpanId.get(spanId);

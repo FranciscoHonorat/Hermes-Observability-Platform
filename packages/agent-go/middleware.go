@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-// HTTPMiddleware returns stdlib net/http middleware that starts (or
-// continues, via an incoming traceparent header) a span for every request,
-// and records http_requests_total / http_request_duration_ms /
-// http_errors_total — the same metric names packages/agent/src/metrics/http.ts
-// uses. Composes into anything built on net/http (chi, gorilla/mux, a bare
-// ServeMux); framework-specific adapters (Gin, Echo) aren't included here.
 func (c *Client) HTTPMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

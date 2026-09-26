@@ -1,13 +1,3 @@
-// Fresh-timestamp HTTP ingestion throughput test.
-// Unlike `ab -p file.json` (which replays one static body — and, thanks to
-// the metrics table's (time, app_name, metric_name) primary key with
-// ON CONFLICT DO UPDATE, ends up upserting the same one or two rows over
-// and over instead of exercising a real insert workload), this stamps a
-// fresh Date.now() timestamp on every batch so each message lands on its
-// own distinct row, like real traffic would.
-//
-// Usage: node scripts/load-test-http-ingest.js [totalBatches] [concurrency]
-// See docs/LOAD_TESTING.md (Phase 2.1, corrected).
 const http = require('http');
 
 const COLLECTOR_HOST = process.env.COLLECTOR_HOST || 'localhost';
@@ -68,7 +58,7 @@ async function main() {
     await Promise.all(Array.from({ length: CONCURRENCY }, () => worker(state)));
 
     const elapsedSec = (Date.now() - start) / 1000;
-    const metricsSent = state.ok * 2; // 2 metrics/batch
+    const metricsSent = state.ok * 2;
     console.log(`Sent ${TOTAL} batches (${CONCURRENCY} concurrent), ${state.ok} accepted, ${state.fail} failed`);
     console.log(`Elapsed: ${elapsedSec.toFixed(2)}s`);
     console.log(`Throughput: ${(state.ok / elapsedSec).toFixed(1)} batches/s = ${(metricsSent / elapsedSec).toFixed(1)} metrics/s`);

@@ -13,9 +13,6 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
-    // Behind nginx (docker/nginx.conf) in every deployment — trust its
-    // X-Forwarded-For so express-rate-limit keys by the real client IP
-    // instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
     app.set('trust proxy', 1);
 
     app.use(helmet());
@@ -45,9 +42,6 @@ export function createServer(): Application {
         res.json({ status: 'ok', service: 'hermes-admin', timestamp: new Date().toISOString() });
     });
 
-    // Every route here requires an authenticated admin — there's no
-    // read-only surface on this service (unlike packages/api, where reads
-    // are open to any authenticated role).
     app.use('/api/v1/admin/users', authenticate, requireRole('admin'), usersRouter);
     app.use('/api/v1/admin/api-keys', authenticate, requireRole('admin'), apiKeysRouter);
 

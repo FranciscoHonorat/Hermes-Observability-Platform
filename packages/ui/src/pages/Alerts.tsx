@@ -34,7 +34,6 @@ const Alerts = () => {
     try {
       const rulesData = await alertsApi.getRules();
       setRules(rulesData);
-      // Don't load history without a specific alert ID
       setHistory([]);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load alert data');
@@ -46,7 +45,6 @@ const Alerts = () => {
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Filter out empty email recipients
       const validEmails = formData.email_recipients.filter(email => email.trim() !== '');
       if (validEmails.length === 0) {
         setError('At least one email recipient is required');

@@ -5,7 +5,6 @@ import { Logger } from '@hermes/shared';
 const router = Router();
 const logger = new Logger('MetricsAPI');
 
-// GET /api/v1/metrics - Buscar métricas com filtros
 router.get('/', async (req: Request, res: Response) => {
     try {
         const {
@@ -76,7 +75,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/metrics/timeseries - Dados agregados por tempo
 router.get('/timeseries', async (req: Request, res: Response) => {
     try {
         const {
@@ -139,7 +137,6 @@ router.get('/timeseries', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/metrics/names - Listar nomes de métricas disponíveis
 router.get('/names', async (req: Request, res: Response) => {
     try {
         const { appName } = req.query;
@@ -171,7 +168,6 @@ router.get('/names', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/metrics/latest - Últimos valores de cada métrica
 router.get('/latest', async (req: Request, res: Response) => {
     try {
         const { appName } = req.query;

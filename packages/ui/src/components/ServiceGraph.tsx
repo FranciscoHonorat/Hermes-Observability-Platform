@@ -12,12 +12,6 @@ const MARGIN = 60;
 const NODE_RADIUS_MIN = 22;
 const NODE_RADIUS_MAX = 36;
 
-/**
- * Assigns each service a column via BFS from "root" services (ones that
- * never appear as an edge's target) — standard shortest-path layering, so
- * it terminates cleanly even if the call graph has a cycle (a node is only
- * ever assigned on its first visit).
- */
 function computeColumns(names: string[], edges: ServiceMapEdge[]): Map<string, number> {
   const targets = new Set(edges.map(e => e.target));
   const roots = names.filter(n => !targets.has(n));
@@ -34,7 +28,7 @@ function computeColumns(names: string[], edges: ServiceMapEdge[]): Map<string, n
 
   while (queue.length > 0) {
     const [name, col] = queue.shift()!;
-    if (columns.has(name)) continue; // first visit wins (shortest path from a root)
+    if (columns.has(name)) continue;
     columns.set(name, col);
     for (const next of outgoing.get(name) || []) {
       if (!columns.has(next)) queue.push([next, col + 1]);

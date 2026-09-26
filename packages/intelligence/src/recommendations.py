@@ -1,8 +1,3 @@
-"""Performance recommendations — rule-based, reads spans + anomalies.
-Deliberately not ML: deterministic rules keep this explainable (see
-docs/adr/0001-*.md). The rule-evaluation functions are pure and unit-tested
-independently of Postgres (see tests/test_recommendations.py).
-"""
 import json
 import logging
 

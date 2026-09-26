@@ -5,15 +5,10 @@ import { Logger } from '@hermes/shared';
 const router = Router();
 const logger = new Logger('ServiceMapAPI');
 
-// GET /api/v1/service-map - Grafo de dependências entre serviços
 router.get('/', async (req: Request, res: Response) => {
     try {
         const { from, to } = req.query;
 
-        // Um self-join de spans com seu span pai: quando o serviço do span
-        // filho difere do serviço do pai, isso é uma dependência entre
-        // serviços (parent/child spans do mesmo serviço são só estrutura
-        // interna de chamada, já mostrada no waterfall de um trace).
         const query = `
             SELECT
                 parent.service_name AS caller,
@@ -50,8 +45,6 @@ router.get('/', async (req: Request, res: Response) => {
             avgDurationMs: Number(row.avg_duration_ms)
         }));
 
-        // Estatísticas por nó (chamadas/erros recebidos) derivadas em JS a
-        // partir das arestas, evitando uma segunda query.
         const nodeStats = new Map<string, { callCount: number; errorCount: number }>();
         const touch = (name: string) => {
             if (!nodeStats.has(name)) {

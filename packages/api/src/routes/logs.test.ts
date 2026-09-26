@@ -74,7 +74,7 @@ describe('GET /api/v1/logs', () => {
     query.mockResolvedValueOnce({ rows: [] });
     await request(app).get('/api/v1/logs').set('Authorization', auth());
     const [, params] = query.mock.calls[0];
-    expect(params[0]).toBe(1); // TEST_TENANT_ID
+    expect(params[0]).toBe(1);
   });
 
   it('a row without a traceId omits it rather than sending null', async () => {

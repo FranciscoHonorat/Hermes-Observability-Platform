@@ -1,13 +1,10 @@
 services:
-  # -------------------------------------------------------------
-  # 1. Banco TimescaleDB (Subido como Private Service para ter a extensão)
-  # -------------------------------------------------------------
   - type: pserv
     name: hermes-postgres
     env: docker
     image:
       url: timescale/timescaledb:latest-pg15
-    plan: starter # Planos com disco precisam ser no mínimo Starter no Render
+    plan: starter
     disk:
       name: postgres-data
       mountPath: /var/lib/postgresql/data
@@ -18,11 +15,8 @@ services:
       - key: POSTGRES_USER
         value: hermes
       - key: POSTGRES_PASSWORD
-        generateValue: true # Gera uma senha segura automaticamente no Render
+        generateValue: true
 
-  # -------------------------------------------------------------
-  # 2. Redis (Cache/Streaming)
-  # -------------------------------------------------------------
   - type: pserv
     name: hermes-redis
     env: docker
@@ -34,9 +28,6 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  # -------------------------------------------------------------
-  # 3. Hermes Collector (Web Service Público)
-  # -------------------------------------------------------------
   - type: web
     name: hermes-collector
     env: docker
@@ -53,11 +44,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: COLLECTOR_API_KEYS
-        generateValue: true # Distribute this to instrumented apps as HERMES_API_KEY
+        generateValue: true
 
-  # -------------------------------------------------------------
-  # 4. Hermes Processor (Worker de Background)
-  # -------------------------------------------------------------
   - type: worker
     name: hermes-processor
     env: docker
@@ -85,9 +73,6 @@ services:
       - key: NODE_ENV
         value: production
 
-  # -------------------------------------------------------------
-  # 5. Hermes API (Web Service Público)
-  # -------------------------------------------------------------
   - type: web
     name: hermes-api
     env: docker
@@ -117,16 +102,13 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_ADMIN_TOKEN
-        generateValue: true # Bearer token required on POST/PUT/DELETE /api/v1/alerts
+        generateValue: true
       - key: CORS_ORIGIN
         fromService:
           type: web
           name: hermes-ui
           property: url
 
-  # -------------------------------------------------------------
-  # 6. Hermes UI (React Dashboard - Web Service Público)
-  # -------------------------------------------------------------
   - type: web
     name: hermes-ui
     env: docker
@@ -139,8 +121,6 @@ services:
           type: web
           name: hermes-api
           property: url
-      # Injected server-side into nginx's proxy (docker/nginx.conf) so the
-      # admin token never ships in the browser bundle.
       - key: API_ADMIN_TOKEN
         fromService:
           type: web

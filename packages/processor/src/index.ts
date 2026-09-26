@@ -1,6 +1,6 @@
 import { Logger, REDIS_METRICS_STREAM, REDIS_TRACES_STREAM, REDIS_LOGS_STREAM } from '@hermes/shared';
 import { testConnection, closePool } from './database';
-import { redis, tracesRedis, logsRedis, criarGrupoConsumidor } from './redis';
+import { redis, tracesRedis, logsRedis, createConsumerGroup } from './redis';
 import { processMetrics } from './metricsProcessor';
 import { processSpans } from './spansProcessor';
 import { processLogs } from './logsProcessor';
@@ -10,69 +10,62 @@ import { config } from './config';
 const logger = new Logger('Processor');
 
 async function main() {
-    logger.info('Iniciando Hermes Processor...');
+    logger.info('Starting Hermes Processor...');
 
     try {
-        // 1. Testar conexão com o banco de dados
         const dbConnected = await testConnection();
         if (!dbConnected) {
-            throw new Error('Falha ao conectar no banco de dados');
+            throw new Error('Failed to connect to database');
         }
 
-        // 2. Criar grupos de consumidores no Redis
-        await criarGrupoConsumidor(REDIS_METRICS_STREAM, config.processor.consumerGroup);
-        await criarGrupoConsumidor(REDIS_TRACES_STREAM, config.processor.tracesConsumerGroup);
-        await criarGrupoConsumidor(REDIS_LOGS_STREAM, config.processor.logsConsumerGroup);
+        await createConsumerGroup(REDIS_METRICS_STREAM, config.processor.consumerGroup);
+        await createConsumerGroup(REDIS_TRACES_STREAM, config.processor.tracesConsumerGroup);
+        await createConsumerGroup(REDIS_LOGS_STREAM, config.processor.logsConsumerGroup);
 
-        // 3. Iniciar processamento de métricas
-        logger.info('Iniciando processamento de métricas...');
+        logger.info('Starting metrics processing...');
         processMetrics().catch(err => {
-            logger.error('Erro fatal no processamento de métricas:', err);
+            logger.error('Fatal error in metrics processing:', err);
             process.exit(1);
         });
 
-        // 3b. Iniciar processamento de spans
-        logger.info('Iniciando processamento de spans...');
+        logger.info('Starting spans processing...');
         processSpans().catch(err => {
-            logger.error('Erro fatal no processamento de spans:', err);
+            logger.error('Fatal error in spans processing:', err);
             process.exit(1);
         });
 
-        // 3c. Iniciar processamento de logs
-        logger.info('Iniciando processamento de logs...');
+        logger.info('Starting logs processing...');
         processLogs().catch(err => {
-            logger.error('Erro fatal no processamento de logs:', err);
+            logger.error('Fatal error in logs processing:', err);
             process.exit(1);
         });
 
-        // 4. Iniciar motor de alertas
-        logger.info('Iniciando motor de alertas...');
+        logger.info('Starting alert engine...');
         startAlertEngine().catch(err => {
-            logger.error('Erro fatal no motor de alertas:', err);
+            logger.error('Fatal error in alert engine:', err);
             process.exit(1);
         });
 
-        logger.info('Hermes Processor iniciado com sucesso!');
+        logger.info('Hermes Processor started successfully!');
 
     } catch (error) {
-        logger.error('Erro ao iniciar processor:', error);
+        logger.error('Error starting processor:', error);
         process.exit(1);
     }
 }
 
-// Tratamento de shutdown graceful
 async function shutdown(signal: string) {
-    logger.info(`${signal} recebido. Encerrando gracefully...`);
-    
+    logger.info(`${signal} received. Shutting down gracefully...`);
+
     try {
         await closePool();
         await redis.quit();
         await tracesRedis.quit();
         await logsRedis.quit();
-        logger.info('Recursos liberados com sucesso');
+        logger.info('Resources released successfully');
         process.exit(0);
     } catch (error) {
-        logger.error('Erro ao encerrar:', error);
+        logger.error('Error during shutdown:', error);
         process.exit(1);
     }
 }
@@ -80,7 +73,6 @@ async function shutdown(signal: string) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception:', error);
     shutdown('uncaughtException');
@@ -91,5 +83,4 @@ process.on('unhandledRejection', (reason) => {
     shutdown('unhandledRejection');
 });
 
-// Iniciar aplicação
 main();

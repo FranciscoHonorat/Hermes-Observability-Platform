@@ -1,70 +1,70 @@
 # Hermes Observability - UI Package
 
-Dashboard React para visualização de métricas em tempo real.
+React dashboard for real-time metrics visualization.
 
-## Tecnologias
+## Technologies
 
-- **React 18** - Framework UI
-- **Vite 5** - Build tool e dev server
+- **React 18** - UI Framework
+- **Vite 5** - Build tool and dev server
 - **TypeScript** - Type safety
 - **TailwindCSS** - Styling
-- **Chart.js + react-chartjs-2** - Visualização de gráficos
+- **Chart.js + react-chartjs-2** - Chart visualization
 - **React Router** - Navigation
 - **Axios** - HTTP client
 - **date-fns** - Date formatting
 
-## Estrutura
+## Structure
 
 ```
 src/
 ├── api/
-│   └── client.ts          # API client com endpoints
+│   └── client.ts          # API client with endpoints
 ├── components/
-│   ├── Card.tsx           # Componente de card reutilizável
-│   ├── ErrorMessage.tsx   # Mensagem de erro
-│   ├── LoadingSpinner.tsx # Indicador de carregamento
-│   ├── MetricChart.tsx    # Gráfico de métricas
-│   └── TimeRangeSelector.tsx # Seletor de intervalo de tempo
+│   ├── Card.tsx           # Reusable card component
+│   ├── ErrorMessage.tsx   # Error message
+│   ├── LoadingSpinner.tsx # Loading indicator
+│   ├── MetricChart.tsx    # Metrics chart
+│   └── TimeRangeSelector.tsx # Time range selector
 ├── pages/
-│   ├── Dashboard.tsx      # Dashboard principal
-│   ├── Applications.tsx   # Lista de aplicações
-│   └── Alerts.tsx         # Gerenciamento de alertas
-├── App.tsx                # Root component com routing
+│   ├── Dashboard.tsx      # Main dashboard
+│   ├── Applications.tsx   # Application list
+│   └── Alerts.tsx         # Alert management
+├── App.tsx                # Root component with routing
 ├── main.tsx               # Entry point
 └── index.css              # Global styles
 ```
 
-## Instalação
+## Installation
 
 ```bash
-# No diretório raiz do monorepo
+# In the monorepo root directory
 npm install
 
-# Ou apenas no UI
+# Or just the UI
 cd packages/ui
 npm install
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
-# Iniciar dev server (porta 3001)
+# Start dev server (port 3001)
 npm run dev
 
-# Build para produção
+# Build for production
 npm run build
 
-# Preview do build
+# Preview the build
 npm run preview
 ```
 
 ## Features
 
 ### Dashboard
-- Visualização de métricas em tempo real com gráficos de linha
-- Seletor de intervalo de tempo (1h, 6h, 24h, 7d, 30d)
-- Filtro por aplicação
-- Métricas monitoradas:
+- Real-time metrics visualization with line charts
+- Time range selector (1h, 6h, 24h, 7d, 30d)
+- Filter by application
+- Monitored metrics:
   - CPU Usage
   - Memory Usage
   - Event Loop Lag
@@ -72,28 +72,28 @@ npm run preview
   - HTTP Request Duration
 
 ### Applications
-- Lista de todas as aplicações monitoradas
-- Informações de primeira e última coleta
-- Contador de métricas por aplicação
+- List of all monitored applications
+- First and last collection information
+- Metric count per application
 
 ### Alerts
-- Criação de regras de alerta
-- Configuração de condições e thresholds
-- Gerenciamento de notificações por email
-- Histórico de alertas disparados
-- Reconhecimento de alertas (acknowledge)
+- Alert rule creation
+- Condition and threshold configuration
+- Email notification management
+- History of triggered alerts
+- Alert acknowledgement
 
 ## API Proxy
 
-O Vite está configurado para fazer proxy das requisições `/api` para `http://localhost:3000` (API server).
+Vite is configured to proxy `/api` requests to `http://localhost:3000` (API server).
 
-## Variáveis de Ambiente
+## Environment Variables
 
-Não são necessárias variáveis de ambiente para desenvolvimento local. Para produção, ajuste o proxy no `vite.config.ts` ou configure a `VITE_API_URL`.
+No environment variables are required for local development. For production, adjust the proxy in `vite.config.ts` or set `VITE_API_URL`.
 
-## Cores do Tema
+## Theme Colors
 
-Definidas no `tailwind.config.js`:
+Defined in `tailwind.config.js`:
 - primary: #3b82f6 (blue)
 - secondary: #8b5cf6 (purple)
 - success: #10b981 (green)

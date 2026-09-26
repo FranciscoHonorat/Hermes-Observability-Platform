@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Script de teste rápido do Hermes Observability
- * Valida se todos os componentes estão funcionando
- */
-
 const http = require('http');
 const { execSync } = require('child_process');
 
@@ -56,7 +51,7 @@ function checkService(name, host, port, path = '/health') {
 }
 
 async function checkBuild() {
-    log('\n🔍 Checking build artifacts...', 'blue');
+    log('\nChecking build artifacts...', 'blue');
     
     const packages = ['shared', 'agent', 'collector', 'processor', 'api', 'ui'];
     let allBuilt = true;
@@ -77,7 +72,7 @@ async function checkBuild() {
 }
 
 async function checkDocker() {
-    log('\n🐳 Checking Docker services...', 'blue');
+    log('\nChecking Docker services...', 'blue');
     
     try {
         execSync('docker ps', { stdio: 'ignore' });
@@ -107,7 +102,7 @@ async function checkDocker() {
 }
 
 async function checkServices() {
-    log('\n🚀 Checking running services...', 'blue');
+    log('\nChecking running services...', 'blue');
     
     const results = await Promise.all([
         checkService('Collector', 'localhost', 4000),
@@ -127,29 +122,29 @@ async function main() {
     const dockerOk = await checkDocker();
     const servicesOk = await checkServices();
 
-    log('\n📊 Summary:', 'blue');
+    log('\nSummary:', 'blue');
     log(`   Build: ${buildOk ? '✓' : '✗'}`, buildOk ? 'green' : 'red');
     log(`   Docker: ${dockerOk ? '✓' : '✗'}`, dockerOk ? 'green' : 'yellow');
     log(`   Services: ${servicesOk ? '✓' : '✗'}`, servicesOk ? 'green' : 'yellow');
 
     if (buildOk && dockerOk && servicesOk) {
-        log('\n🎉 All systems operational!', 'green');
-        log('\n📍 Access points:', 'blue');
+        log('\nAll systems operational!', 'green');
+        log('\nAccess points:', 'blue');
         log('   Dashboard: http://localhost:3001');
         log('   API:       http://localhost:3000');
         log('   Collector: http://localhost:4000');
         process.exit(0);
     } else {
-        log('\n⚠️  Some components need attention', 'yellow');
-        
+        log('\nSome components need attention', 'yellow');
+
         if (!buildOk) {
-            log('\n💡 Run: npm run build', 'yellow');
+            log('\nRun: npm run build', 'yellow');
         }
         if (!dockerOk) {
-            log('\n💡 Run: npm run docker:up', 'yellow');
+            log('\nRun: npm run docker:up', 'yellow');
         }
         if (!servicesOk) {
-            log('\n💡 Start services manually or check QUICKSTART.md', 'yellow');
+            log('\nStart services manually or check QUICKSTART.md', 'yellow');
         }
         
         process.exit(1);

@@ -4,7 +4,6 @@ import { config } from './config';
 
 const logger = new Logger('Redis');
 
-// Configuração do Redis
 export const redis = new Redis({
     host: config.redis.host,
     port: config.redis.port,
@@ -29,7 +28,6 @@ redis.on('close', () => {
     logger.warn('Redis connection closed');
 });
 
-// Função para verificar conexão
 export async function testRedisConnection(): Promise<boolean> {
     try {
         await redis.ping();
@@ -41,7 +39,6 @@ export async function testRedisConnection(): Promise<boolean> {
     }
 }
 
-// Função para adicionar métrica ao stream
 export async function addMetricToStream(metric: any): Promise<string> {
     const id = await redis.xadd(
         REDIS_METRICS_STREAM,
@@ -52,7 +49,6 @@ export async function addMetricToStream(metric: any): Promise<string> {
     return id || '';
 }
 
-// Função para adicionar span ao stream
 export async function addSpanToStream(span: any): Promise<string> {
     const id = await redis.xadd(
         REDIS_TRACES_STREAM,
@@ -63,15 +59,11 @@ export async function addSpanToStream(span: any): Promise<string> {
     return id || '';
 }
 
-// api_keys.key_hash -> tenant_id lookup, written by packages/admin on key
-// creation/revocation. Returns null if the hash isn't cached (unknown or
-// revoked key). See middleware/apiKeyAuth.ts and docs/adr/0002-*.md.
 export async function lookupTenantForApiKey(keyHash: string): Promise<number | null> {
     const tenantId = await redis.hget(REDIS_API_KEYS_HASH, keyHash);
     return tenantId ? Number(tenantId) : null;
 }
 
-// Função para adicionar log ao stream
 export async function addLogToStream(log: any): Promise<string> {
     const id = await redis.xadd(
         REDIS_LOGS_STREAM,

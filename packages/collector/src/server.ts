@@ -15,20 +15,14 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
-    // Behind nginx (docker/nginx.conf) in every deployment — trust its
-    // X-Forwarded-For so express-rate-limit keys by the real client IP
-    // instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
     app.set('trust proxy', 1);
 
-    // Security headers
     app.use(helmet());
 
-    // Middleware de parsing
     app.use(cors());
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
 
-    // Rate limiting per source IP
     app.use(rateLimit({
         windowMs: config.rateLimit.windowMs,
         max: config.rateLimit.max,
@@ -37,7 +31,6 @@ export function createServer(): Application {
         message: { error: 'Too many requests' }
     }));
 
-    // Logging middleware
     app.use((req: Request, res: Response, next: NextFunction) => {
         const start = Date.now();
         
@@ -52,7 +45,6 @@ export function createServer(): Application {
         next();
     });
 
-    // Health check
     app.get('/health', (req: Request, res: Response) => {
         res.json({ 
             status: 'ok',
@@ -61,7 +53,6 @@ export function createServer(): Application {
         });
     });
 
-    // Rota base
     app.get('/', (req: Request, res: Response) => {
         res.json({
             service: 'Hermes Collector',
@@ -75,12 +66,10 @@ export function createServer(): Application {
         });
     });
 
-    // Rotas da API (ingestão requer x-api-key — ver COLLECTOR_API_KEYS)
     app.use('/api/v1/metrics', apiKeyAuth, metricsRouter);
     app.use('/api/v1/traces', apiKeyAuth, tracesRouter);
     app.use('/api/v1/logs', apiKeyAuth, logsRouter);
 
-    // 404 handler
     app.use((req: Request, res: Response) => {
         res.status(404).json({
             error: 'Not found',
@@ -88,7 +77,6 @@ export function createServer(): Application {
         });
     });
 
-    // Error handling middleware (deve ser o último)
     app.use(errorHandler);
 
     return app;

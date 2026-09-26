@@ -35,7 +35,7 @@ describe('GET /api/v1/admin/users', () => {
     expect(res.status).toBe(200);
     expect(res.body.users).toEqual([]);
     const [, params] = query.mock.calls[0];
-    expect(params).toEqual([1]); // caller's tenantId
+    expect(params).toEqual([1]);
   });
 });
 
@@ -59,7 +59,7 @@ describe('POST /api/v1/admin/users', () => {
       .send({ email: 'x@acme.test', password: 'password123', role: 'viewer' });
     expect(res.status).toBe(201);
     const [, params] = query.mock.calls[0];
-    expect(params[0]).toBe(1); // tenant_id always from the caller, never the body
+    expect(params[0]).toBe(1);
   });
 });
 

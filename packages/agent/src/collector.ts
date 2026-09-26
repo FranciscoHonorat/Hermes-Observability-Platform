@@ -27,9 +27,6 @@ export class MetricsCollector {
         });
     }
 
-    /**
-     * Inicia a coleta automática de métricas
-     */
     start(): void {
         if (this.isRunning) {
             logger.warn('Metrics collector is already running');
@@ -39,18 +36,13 @@ export class MetricsCollector {
         logger.info(`Starting metrics collection every ${this.config.collectInterval}ms`);
         this.isRunning = true;
 
-        // Coleta imediata
         this.collectAndSend();
 
-        // Coleta periódica
         this.intervalId = setInterval(() => {
             this.collectAndSend();
         }, this.config.collectInterval);
     }
 
-    /**
-     * Para a coleta automática de métricas
-     */
     stop(): void {
         if (!this.isRunning) {
             return;
@@ -66,9 +58,6 @@ export class MetricsCollector {
         this.isRunning = false;
     }
 
-    /**
-     * Coleta todas as métricas e envia para o collector
-     */
     private async collectAndSend(): Promise<void> {
         try {
             const metrics = await this.collectAllMetrics();
@@ -78,7 +67,6 @@ export class MetricsCollector {
                 return;
             }
 
-            // Adicionar metadata a todas as métricas
             const enrichedMetrics = metrics.map(metric => ({
                 ...metric,
                 metadata: {
@@ -107,9 +95,6 @@ export class MetricsCollector {
         await this.collectAndSendLogs();
     }
 
-    /**
-     * Drena os spans concluídos desde o último flush e envia ao collector.
-     */
     private async collectAndSendSpans(): Promise<void> {
         try {
             const spans = getCompletedSpans();
@@ -134,9 +119,6 @@ export class MetricsCollector {
         }
     }
 
-    /**
-     * Drena os logs concluídos desde o último flush e envia ao collector.
-     */
     private async collectAndSendLogs(): Promise<void> {
         try {
             const logs = getCompletedLogs();
@@ -161,30 +143,22 @@ export class MetricsCollector {
         }
     }
 
-    /**
-     * Coleta todas as métricas do sistema
-     */
     private async collectAllMetrics(): Promise<Metric[]> {
         const allMetrics: Metric[] = [];
 
         try {
-            // CPU metrics
             const cpuMetrics = collectCpuMetrics();
             allMetrics.push(...cpuMetrics);
 
-            // Memory metrics
             const memoryMetrics = collectMemoryMetrics();
             allMetrics.push(...memoryMetrics);
 
-            // Event Loop metrics (async)
             const eventLoopMetrics = await collectEventLoopMetrics();
             allMetrics.push(...eventLoopMetrics);
 
-            // Uptime metric
             const uptimeMetrics = collectUptimeMetric();
             allMetrics.push(...uptimeMetrics);
 
-            // HTTP metrics (se houver)
             const httpMetrics = getHttpMetrics();
             allMetrics.push(...httpMetrics);
 
@@ -196,9 +170,6 @@ export class MetricsCollector {
         return allMetrics;
     }
 
-    /**
-     * Registra uma métrica customizada
-     */
     recordMetric(metric: Metric): void {
         const enrichedMetric = {
             ...metric,
@@ -225,7 +196,6 @@ export class MetricsCollector {
     }
 }
 
-// Export singleton para facilitar uso
 let defaultCollector: MetricsCollector | null = null;
 
 export function createAgent(config?: Partial<ReturnType<typeof loadConfig>>): MetricsCollector {

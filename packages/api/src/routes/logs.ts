@@ -5,7 +5,6 @@ import { Logger } from '@hermes/shared';
 const router = Router();
 const logger = new Logger('LogsAPI');
 
-// GET /api/v1/logs - Buscar logs com filtros
 router.get('/', async (req: Request, res: Response) => {
     try {
         const {

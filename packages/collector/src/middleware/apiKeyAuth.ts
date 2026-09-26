@@ -14,19 +14,8 @@ declare global {
 }
 
 const isProduction = process.env.NODE_ENV === 'production';
-// The fixed "default" tenant seeded by docker/init-db.sql — see
-// docs/adr/0002-*.md for why unauthenticated dev traffic is attributed
-// here instead of being rejected outright, preserving this project's
-// "just works" local dev experience.
 const DEV_DEFAULT_TENANT_ID = 1;
 
-/**
- * Requires a valid `x-api-key` header on ingestion routes and resolves it
- * to a tenant. Replaces the old flat COLLECTOR_API_KEYS array check — keys
- * are now per-tenant, minted by packages/admin, and looked up by hash in
- * Redis (packages/admin writes that cache; this stays a single Redis
- * lookup on the hot ingestion path, no new Postgres dependency here).
- */
 export async function apiKeyAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     const provided = req.header('x-api-key');
 

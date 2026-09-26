@@ -5,7 +5,6 @@ vi.mock('../database', () => ({
   pool: { query: vi.fn() }
 }));
 
-// createServer() reads config at call time, so re-import fresh each test file run.
 import { createServer } from '../server';
 import { pool } from '../database';
 import { adminToken, viewerToken } from '../testUtils/auth';
@@ -84,7 +83,7 @@ describe('GET /api/v1/alerts', () => {
     query.mockResolvedValueOnce({ rows: [] });
     await request(app).get('/api/v1/alerts').set('Authorization', viewer());
     const [, params] = query.mock.calls[0];
-    expect(params[0]).toBe(1); // TEST_TENANT_ID
+    expect(params[0]).toBe(1);
   });
 });
 

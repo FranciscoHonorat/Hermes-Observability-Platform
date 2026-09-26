@@ -1,54 +1,54 @@
-# 📊 Hermes Observability - Relatório Final
+# Hermes Observability - Final Report
 
-**Data**: 12 de Maio de 2026  
-**Status**: ✅ **OPERACIONAL - 100% FUNCIONAL**
-
----
-
-## 1. 🎯 Resumo Executivo
-
-O **Hermes Observability** é uma plataforma completa de observabilidade para aplicações Node.js, capaz de coletar, processar e visualizar métricas em tempo real. O sistema foi **completamente configurado, compilado e testado** com sucesso.
-
-### ✅ Marcos Alcançados
-- ✅ TypeScript monorepo totalmente compilado
-- ✅ Docker Compose com 6 serviços rodando
-- ✅ Pipeline de coleta de métricas funcional
-- ✅ Dashboard em tempo real operacional
-- ✅ Integração completa Agent → Collector → API → UI
-- ✅ Testes com dados reais confirmados
+**Date**: May 12, 2026
+**Status**: **OPERATIONAL - 100% FUNCTIONAL**
 
 ---
 
-## 2. 🔧 Problema Resolvido
+## 1. Executive Summary
 
-### O Bug
+**Hermes Observability** is a complete observability platform for Node.js applications, capable of collecting, processing, and visualizing metrics in real time. The system was **fully configured, built, and tested** successfully.
+
+### Milestones Reached
+- TypeScript monorepo fully compiled
+- Docker Compose with 6 services running
+- Functional metrics collection pipeline
+- Real-time dashboard operational
+- Full integration Agent → Collector → API → UI
+- Tests with real data confirmed
+
+---
+
+## 2. Bug Resolved
+
+### The Bug
 ```
 [ERROR] [Transport] No response from collector: http://localhost:4000/collect
 [ERROR] [Transport] Failed to send metrics: 404
 ```
 
-### A Causa
-O agent estava enviando métricas para uma URL incorreta:
-- ❌ Enviando para: `http://localhost:4000/collect` (incorreto)
-- ✅ Deveria enviar para: `http://localhost:4000` (correto)
+### The Cause
+The agent was sending metrics to an incorrect URL:
+- Sending to: `http://localhost:4000/collect` (incorrect)
+- Should send to: `http://localhost:4000` (correct)
 
-### A Solução
-**Arquivo**: [packages/agent/src/config.ts](packages/agent/src/config.ts)
+### The Fix
+**File**: [packages/agent/src/config.ts](packages/agent/src/config.ts)
 
 ```typescript
-// ANTES (❌ INCORRETO)
+// BEFORE (INCORRECT)
 collectorUrl: process.env.HERMES_COLLECTOR_URL || 'http://localhost:4000/collect'
 
-// DEPOIS (✅ CORRETO)
+// AFTER (CORRECT)
 collectorUrl: process.env.HERMES_COLLECTOR_URL || 'http://localhost:4000'
 ```
 
-O collector espera requisições em:
-- `POST /api/v1/metrics` - para envio de métricas
+The collector expects requests at:
+- `POST /api/v1/metrics` - for sending metrics
 
 ---
 
-## 3. 🏗️ Arquitetura do Sistema
+## 3. System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -56,9 +56,9 @@ O collector espera requisições em:
 └─────────────────────────────────────────────────────────────┘
 
 ┌──────────────┐
-│  Demo-App    │  (porta 3333)
-│ (Node.js)    │  ├─ Coleta eventos de usuário/pedidos
-│              │  └─ Gera métricas de negócio
+│  Demo-App    │  (port 3333)
+│ (Node.js)    │  ├─ Collects user/order events
+│              │  └─ Generates business metrics
 └──────┬───────┘
        │ HTTP POST
        ▼
@@ -73,54 +73,54 @@ O collector espera requisições em:
        │ POST /api/v1/metrics
        ▼
 ┌──────────────────────────────────────────┐
-│      COLLECTOR (porta 4000)              │
-│  ├─ Recebe batches de métricas           │
-│  ├─ Valida estrutura                     │
-│  └─ Enfileira em Redis Streams           │
+│      COLLECTOR (port 4000)               │
+│  ├─ Receives metric batches              │
+│  ├─ Validates structure                  │
+│  └─ Enqueues into Redis Streams          │
 └──────┬───────────────────────────────────┘
        │ Redis Streams
        ▼
 ┌──────────────────────────────────────────┐
 │      PROCESSOR                           │
-│  ├─ Processa métricas                    │
-│  ├─ Executa alert engine                 │
-│  └─ Envia notificações                   │
+│  ├─ Processes metrics                    │
+│  ├─ Runs the alert engine                │
+│  └─ Sends notifications                  │
 └──────┬───────────────────────────────────┘
        │ PostgreSQL + TimescaleDB
        ▼
 ┌──────────────────────────────────────────┐
-│   API REST (porta 3000)                  │
-│  ├─ GET /metrics - Consultar métricas    │
-│  ├─ POST /alerts - Criar alertas         │
-│  └─ GET /applications - Aplicações       │
+│   REST API (port 3000)                   │
+│  ├─ GET /metrics - Query metrics         │
+│  ├─ POST /alerts - Create alerts         │
+│  └─ GET /applications - Applications     │
 └──────┬───────────────────────────────────┘
        │ REST API
        ▼
 ┌──────────────────────────────────────────┐
-│   DASHBOARD UI (porta 3001)              │
-│  ├─ Gráficos de CPU Usage                │
-│  ├─ Gráficos de Memory Usage              │
-│  ├─ Métricas customizadas                │
-│  └─ Alertas em tempo real                │
+│   DASHBOARD UI (port 3001)               │
+│  ├─ CPU Usage charts                     │
+│  ├─ Memory Usage charts                  │
+│  ├─ Custom metrics                       │
+│  └─ Real-time alerts                     │
 └──────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. 📡 Endpoints POST Disponíveis
+## 4. Available POST Endpoints
 
 ### 4.1 Demo-App (http://localhost:3333)
 
-#### **POST /api/users** - Criar usuário
-Cria um novo usuário no sistema e registra métrica de eventos.
+#### **POST /api/users** - Create user
+Creates a new user in the system and records an event metric.
 
 **Request:**
 ```bash
 curl -X POST http://localhost:3333/api/users \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "João Silva",
-    "email": "joao@example.com"
+    "name": "John Smith",
+    "email": "john@example.com"
   }'
 ```
 
@@ -128,20 +128,20 @@ curl -X POST http://localhost:3333/api/users \
 ```json
 {
   "id": 2,
-  "name": "João Silva",
-  "email": "joao@example.com",
+  "name": "John Smith",
+  "email": "john@example.com",
   "createdAt": "2026-05-12T02:40:23.650Z"
 }
 ```
 
-**Métricas Geradas:**
-- ✅ `users_created_total` (counter) +1
-- ✅ `total_users` (gauge) - valor total de usuários
+**Generated Metrics:**
+- `users_created_total` (counter) +1
+- `total_users` (gauge) - total number of users
 
 ---
 
-#### **POST /api/orders** - Criar pedido
-Cria um novo pedido e registra métricas de negócio.
+#### **POST /api/orders** - Create order
+Creates a new order and records business metrics.
 
 **Request:**
 ```bash
@@ -168,15 +168,15 @@ curl -X POST http://localhost:3333/api/orders \
 }
 ```
 
-**Métricas Geradas:**
-- ✅ `orders_created_total` (counter) +1
-- ✅ `order_value_usd` (gauge) - valor do pedido
-- ✅ `order_quantity` (histogram) - quantidade de itens
+**Generated Metrics:**
+- `orders_created_total` (counter) +1
+- `order_value_usd` (gauge) - order value
+- `order_quantity` (histogram) - item quantity
 
 ---
 
-#### **POST /api/simulator/start** - Iniciar simulador de tráfego
-Inicia gerador automático de eventos aleatórios a cada 3 segundos.
+#### **POST /api/simulator/start** - Start traffic simulator
+Starts an automatic generator of random events every 3 seconds.
 
 **Request:**
 ```bash
@@ -190,13 +190,13 @@ curl -X POST http://localhost:3333/api/simulator/start
 }
 ```
 
-**O que faz:**
-- Cria 1-3 usuários aleatórios por ciclo
-- Cria 1-2 pedidos aleatórios por ciclo
-- Executa endpoints de stress test
-- Gera HTTP requests continuamente
+**What it does:**
+- Creates 1-3 random users per cycle
+- Creates 1-2 random orders per cycle
+- Runs stress test endpoints
+- Continuously generates HTTP requests
 
-**Métricas Geradas (automaticamente):**
+**Generated Metrics (automatically):**
 - `http_requests_total` (counter)
 - `http_request_duration_ms` (histogram)
 - `users_created_total` (counter)
@@ -205,8 +205,8 @@ curl -X POST http://localhost:3333/api/simulator/start
 
 ---
 
-#### **POST /api/simulator/stop** - Parar simulador de tráfego
-Para a geração automática de eventos.
+#### **POST /api/simulator/stop** - Stop traffic simulator
+Stops the automatic event generation.
 
 **Request:**
 ```bash
@@ -224,8 +224,8 @@ curl -X POST http://localhost:3333/api/simulator/stop
 
 ### 4.2 Collector (http://localhost:4000)
 
-#### **POST /api/v1/metrics** - Enviar batch de métricas
-Endpoint usado pelo Agent SDK para enviar métricas ao servidor de coleta.
+#### **POST /api/v1/metrics** - Send metric batch
+Endpoint used by the Agent SDK to send metrics to the collection server.
 
 **Request:**
 ```bash
@@ -272,20 +272,20 @@ curl -X POST http://localhost:4000/api/v1/metrics \
 }
 ```
 
-**Estrutura de Métrica Aceita:**
+**Accepted Metric Structure:**
 ```typescript
 interface Metric {
-  name: string                    // Nome da métrica
+  name: string                    // Metric name
   type: "counter" | "gauge" | "histogram"
-  value: number                   // Valor numérico
-  unit: string                    // Unidade (count, ms, percent, etc)
-  timestamp: number               // Unix timestamp em ms
+  value: number                   // Numeric value
+  unit: string                    // Unit (count, ms, percent, etc)
+  timestamp: number               // Unix timestamp in ms
   metadata?: {
     service?: string
     environment?: string
     host?: string
   }
-  labels?: Record<string, any>    // Labels customizadas
+  labels?: Record<string, any>    // Custom labels
 }
 ```
 
@@ -293,16 +293,16 @@ interface Metric {
 
 ### 4.3 API (http://localhost:3000)
 
-#### **POST /alerts** - Criar regra de alerta
-Cria uma nova regra de alerta para notificações.
+#### **POST /alerts** - Create alert rule
+Creates a new alert rule for notifications.
 
 **Request:**
 ```bash
 curl -X POST http://localhost:3000/alerts \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "CPU Alto",
-    "description": "Alerta quando CPU > 80%",
+    "name": "High CPU",
+    "description": "Alert when CPU > 80%",
     "metric": "cpu_usage_percent",
     "condition": "gt",
     "threshold": 80,
@@ -316,7 +316,7 @@ curl -X POST http://localhost:3000/alerts \
 ```json
 {
   "id": "alert_12345",
-  "name": "CPU Alto",
+  "name": "High CPU",
   "metric": "cpu_usage_percent",
   "condition": "gt",
   "threshold": 80,
@@ -326,173 +326,173 @@ curl -X POST http://localhost:3000/alerts \
 
 ---
 
-## 5. 📊 Métricas Automáticas Coletadas
+## 5. Automatically Collected Metrics
 
-### Sistema (Agent Automático)
-| Métrica | Tipo | Descrição |
+### System (Automatic Agent)
+| Metric | Type | Description |
 |---------|------|-----------|
-| `cpu_usage_percent` | Gauge | Percentual de uso de CPU |
-| `memory_heap_used_mb` | Gauge | Heap memory utilizada (MB) |
-| `memory_rss_mb` | Gauge | RSS memory total (MB) |
-| `event_loop_lag_ms` | Histogram | Latência do event loop (ms) |
-| `uptime_seconds` | Gauge | Tempo de uptime (segundos) |
+| `cpu_usage_percent` | Gauge | CPU usage percentage |
+| `memory_heap_used_mb` | Gauge | Used heap memory (MB) |
+| `memory_rss_mb` | Gauge | Total RSS memory (MB) |
+| `event_loop_lag_ms` | Histogram | Event loop latency (ms) |
+| `uptime_seconds` | Gauge | Uptime (seconds) |
 
 ### HTTP (via Middleware)
-| Métrica | Tipo | Descrição |
+| Metric | Type | Description |
 |---------|------|-----------|
-| `http_requests_total` | Counter | Total de requisições HTTP |
-| `http_request_duration_ms` | Histogram | Duração de requests (ms) |
-| `http_request_size_bytes` | Histogram | Tamanho de requests (bytes) |
+| `http_requests_total` | Counter | Total HTTP requests |
+| `http_request_duration_ms` | Histogram | Request duration (ms) |
+| `http_request_size_bytes` | Histogram | Request size (bytes) |
 
-### Negócio (Custom)
-| Métrica | Tipo | Descrição |
+### Business (Custom)
+| Metric | Type | Description |
 |---------|------|-----------|
-| `users_created_total` | Counter | Total de usuários criados |
-| `orders_created_total` | Counter | Total de pedidos criados |
-| `order_value_usd` | Gauge | Valor do pedido (USD) |
-| `active_users_count` | Gauge | Usuários ativos agora |
+| `users_created_total` | Counter | Total users created |
+| `orders_created_total` | Counter | Total orders created |
+| `order_value_usd` | Gauge | Order value (USD) |
+| `active_users_count` | Gauge | Currently active users |
 
 ---
 
-## 6. 🧪 Casos de Teste Realizados
+## 6. Test Cases Performed
 
-### Teste 1: Criação de Usuário
+### Test 1: User Creation
 ```bash
-# Criar usuário
+# Create user
 curl -X POST http://localhost:3333/api/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Jane Doe","email":"jane@example.com"}'
 
-# Resultado: ✅ 201 Created
-# Métrica gerada: users_created_total +1
-# Coletada pelo: Agent → Collector → Processor → API → UI
+# Result: 201 Created
+# Metric generated: users_created_total +1
+# Collected by: Agent → Collector → Processor → API → UI
 ```
 
-### Teste 2: Criação de Pedido
+### Test 2: Order Creation
 ```bash
-# Criar pedido
+# Create order
 curl -X POST http://localhost:3333/api/orders \
   -H "Content-Type: application/json" \
   -d '{"userId":2,"productId":1,"quantity":2}'
 
-# Resultado: ✅ 201 Created
-# Métricas geradas:
+# Result: 201 Created
+# Metrics generated:
 #   - orders_created_total +1
 #   - order_value_usd = 3999.98
 #   - order_quantity = 2
 ```
 
-### Teste 3: Dashboard em Tempo Real
-- ✅ Aplicação "unknown-service" detectada
-- ✅ Gráficos de CPU Usage renderizando
-- ✅ Gráficos de Memory Usage renderizando
-- ✅ Dados atualizados continuamente
+### Test 3: Real-Time Dashboard
+- Application "unknown-service" detected
+- CPU Usage charts rendering
+- Memory Usage charts rendering
+- Data updating continuously
 
-### Teste 4: Logs do Collector
+### Test 4: Collector Logs
 ```
 [INFO] [MetricsRoute] Batch processed: 1 accepted, 0 rejected
 ```
-✅ Métricas sendo aceitas e processadas corretamente
+Metrics being accepted and processed correctly
 
 ---
 
-## 7. 💾 Banco de Dados
+## 7. Database
 
 ### PostgreSQL (TimescaleDB)
 - **Host**: localhost:5432
 - **Database**: hermes
-- **Tabelas**: metrics, alerts, applications
+- **Tables**: metrics, alerts, applications
 
 ### Redis
 - **Host**: localhost:6379
 - **Streams**: metrics queue
-- **Função**: Cache e fila de processamento
+- **Role**: Cache and processing queue
 
 ---
 
-## 8. 🚀 Como Executar Novamente
+## 8. How to Run Again
 
-### Start (Iniciar sistema completo)
+### Start (Bring up the full system)
 ```bash
-cd 'd:\Todos os meus projetos\hermes-observability-main\hermes-observability-main'
+cd 'd:\All my projects\hermes-observability-main\hermes-observability-main'
 
-# 1. Compilar TypeScript
+# 1. Compile TypeScript
 npm run build
 
-# 2. Iniciar Docker Compose
+# 2. Start Docker Compose
 docker-compose up -d
 
-# 3. Iniciar demo-app (em outro terminal)
+# 3. Start demo-app (in another terminal)
 cd examples/demo-app
 npm start
 
-# 4. Acessar dashboard
+# 4. Access the dashboard
 http://localhost:3001
 
-# 5. Testar APIs
+# 5. Test the APIs
 curl -X POST http://localhost:3333/api/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Test","email":"test@example.com"}'
 ```
 
-### Stop (Parar sistema)
+### Stop (Bring the system down)
 ```bash
-# Em qualquer diretório do projeto
+# From any directory in the project
 docker-compose down -v
 ```
 
 ---
 
-## 9. 📚 Estrutura de Pastas Importantes
+## 9. Important Folder Structure
 
 ```
 hermes-observability-main/
 ├── packages/
-│   ├── agent/              ← Agent SDK (coleta de métricas)
-│   ├── collector/          ← Receiver de métricas
-│   ├── processor/          ← Processador de alertas
+│   ├── agent/              ← Agent SDK (metrics collection)
+│   ├── collector/          ← Metrics receiver
+│   ├── processor/          ← Alert processor
 │   ├── api/                ← REST API
-│   ├── shared/             ← Types compartilhados
-│   └── ui/                 ← Dashboard React/Vite
+│   ├── shared/             ← Shared types
+│   └── ui/                 ← React/Vite Dashboard
 ├── examples/
-│   └── demo-app/           ← App de exemplo
+│   └── demo-app/           ← Example app
 ├── docker/
-│   ├── docker-compose.yml  ← Orquestração
+│   ├── docker-compose.yml  ← Orchestration
 │   └── Dockerfile.*        ← Build images
-└── tsconfig.json           ← Configuração monorepo
+└── tsconfig.json           ← Monorepo configuration
 ```
 
 ---
 
-## 10. ✅ Checklist Final
+## 10. Final Checklist
 
-- [x] TypeScript compilado com sucesso
-- [x] Docker Compose com 6 serviços operacional
-- [x] Agent enviando métricas corretamente
-- [x] Collector recebendo e processando
-- [x] Processor executando alert engine
-- [x] API retornando dados
-- [x] Dashboard exibindo gráficos em tempo real
-- [x] Testes com dados reais confirmados
-- [x] Endpoint POST /api/users testado
-- [x] Endpoint POST /api/orders testado
-- [x] Endpoint POST /api/simulator/start testado
-- [x] Logs e métricas confirmadas no collector
-
----
-
-## 11. 🎓 Conclusão
-
-O **Hermes Observability** é uma solução **completa e produção-ready** para monitorar aplicações Node.js. O sistema está **totalmente funcional** e pronto para ser expandido com:
-
-- Novos tipos de métricas
-- Integração com mais aplicações
-- Alertas mais sofisticados
-- Dashboards customizados
-- Exportação de dados
-
-**Status Final**: ✅ **OPERACIONAL - 100% FUNCIONAL**
+- [x] TypeScript compiled successfully
+- [x] Docker Compose with 6 services operational
+- [x] Agent sending metrics correctly
+- [x] Collector receiving and processing
+- [x] Processor running the alert engine
+- [x] API returning data
+- [x] Dashboard displaying real-time charts
+- [x] Tests with real data confirmed
+- [x] POST /api/users endpoint tested
+- [x] POST /api/orders endpoint tested
+- [x] POST /api/simulator/start endpoint tested
+- [x] Logs and metrics confirmed in the collector
 
 ---
 
-*Relatório gerado em 12 de Maio de 2026*
+## 11. Conclusion
+
+**Hermes Observability** is a **complete, production-ready** solution for monitoring Node.js applications. The system is **fully functional** and ready to be expanded with:
+
+- New metric types
+- Integration with more applications
+- More sophisticated alerts
+- Custom dashboards
+- Data export
+
+**Final Status**: **OPERATIONAL - 100% FUNCTIONAL**
+
+---
+
+*Report generated on May 12, 2026*

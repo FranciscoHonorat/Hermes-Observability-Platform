@@ -7,7 +7,6 @@ let previousTime = Date.now();
 export const collectCpuMetrics = (): Metric[] => {
     const metrics: Metric[] = [];
 
-    //System CPU Usage (%)
     const cpus = os.cpus();
     let totalIdle = 0;
     let totalTick = 0;
@@ -31,12 +30,11 @@ export const collectCpuMetrics = (): Metric[] => {
         timestamp: Date.now()
     });
 
-    //Process CPU Usage (%)
     const currentCpuUsage = process.cpuUsage(previousCpuUsage);
     const currentTime = Date.now();
     const elapsedTime = currentTime - previousTime;
 
-    const userUsage = currentCpuUsage.user / 1000; // microseconds to milliseconds
+    const userUsage = currentCpuUsage.user / 1000;
     const systemUsage = currentCpuUsage.system / 1000;
     const totalUsage = (userUsage + systemUsage) / elapsedTime * 100;
 

@@ -15,12 +15,6 @@ function parseTraceparent(header: string | undefined): IncomingTraceContext | un
     return { traceId: match[1], parentSpanId: match[2] };
 }
 
-/**
- * Starts (or continues, via the W3C `traceparent` header) a trace for every
- * incoming request. Runs downstream handlers with this span as the current
- * async context, so any `startSpan()` call they make — a DB query, a call
- * wrapped with `instrumentAxios` — automatically nests under it.
- */
 export const httpTracingMiddleware = () => {
     return (req: Request, res: Response, next: NextFunction) => {
         const incoming = parseTraceparent(req.header('traceparent'));
@@ -31,9 +25,6 @@ export const httpTracingMiddleware = () => {
             'http.route': req.route?.path || req.path
         });
 
-        // The span this request created is now visible to any nested
-        // startSpan()/instrumentAxios() call for the rest of this async
-        // chain — including the response header set here for debuggability.
         res.setHeader('traceparent', `00-${span.traceId}-${span.spanId}-01`);
 
         res.on('finish', () => {

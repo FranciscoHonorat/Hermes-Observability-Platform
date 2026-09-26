@@ -7,7 +7,6 @@ const logger = new Logger('AdminUsersAPI');
 
 const VALID_ROLES: Role[] = ['admin', 'viewer'];
 
-// GET /api/v1/admin/users - Listar usuários do tenant do chamador
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(
@@ -21,7 +20,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/v1/admin/users - Criar um novo usuário no tenant do chamador
 router.post('/', async (req: Request, res: Response) => {
     try {
         const { email, password, role = 'viewer' } = req.body;
@@ -37,8 +35,6 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         const passwordHash = await hashPassword(password);
-        // tenant_id always comes from the authenticated caller, never the
-        // request body — an admin can only create users in their own tenant.
         const result = await pool.query(
             `INSERT INTO users (tenant_id, email, password_hash, role)
              VALUES ($1, $2, $3, $4)
@@ -58,7 +54,6 @@ router.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/v1/admin/users/:id/role - Alterar o papel de um usuário
 router.put('/:id/role', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -87,7 +82,6 @@ router.put('/:id/role', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE /api/v1/admin/users/:id - Remover um usuário do tenant do chamador
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

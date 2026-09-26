@@ -5,8 +5,6 @@ import { Logger, validateAlertRule, validateAlertRuleUpdate, ValidationError, re
 const router = Router();
 const logger = new Logger('AlertsAPI');
 
-// Mutating routes require the admin role (was a shared bearer token before
-// multi-tenancy/RBAC — see docs/adr/0002-*.md).
 router.use((req, res, next) => {
     if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
         return requireRole('admin')(req, res, next);
@@ -14,7 +12,6 @@ router.use((req, res, next) => {
     next();
 });
 
-// GET /api/v1/alerts - Listar todos os alertas
 router.get('/', async (req: Request, res: Response) => {
     try {
         const { enabled } = req.query;
@@ -60,7 +57,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/alerts/:id - Detalhes de um alerta
 router.get('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -96,7 +92,6 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/v1/alerts - Criar novo alerta
 router.post('/', async (req: Request, res: Response) => {
     try {
         const body = { enabled: true, ...req.body };
@@ -159,7 +154,6 @@ router.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/v1/alerts/:id - Atualizar alerta
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -184,7 +178,6 @@ router.put('/:id', async (req: Request, res: Response) => {
             enabled
         } = req.body;
 
-        // Verificar se o alerta existe (no tenant do chamador)
         const checkQuery = 'SELECT id FROM alert_rules WHERE id = $1 AND tenant_id = $2';
         const checkResult = await pool.query(checkQuery, [id, req.user!.tenantId]);
 
@@ -231,7 +224,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE /api/v1/alerts/:id - Deletar alerta
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -256,15 +248,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/alerts/:id/history - Histórico de disparos do alerta
 router.get('/:id/history', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { limit = '100' } = req.query;
 
-        // alert_history rows are tenant-scoped directly (not just via the
-        // alert_rules join) so this stays correct even if a rule is ever
-        // deleted out from under its history.
         const query = `
             SELECT
                 id,

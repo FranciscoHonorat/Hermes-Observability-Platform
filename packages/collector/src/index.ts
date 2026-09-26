@@ -12,13 +12,11 @@ async function main() {
             port: config.port
         });
 
-        // Testar conexão com Redis
         const redisConnected = await testRedisConnection();
         if (!redisConnected) {
             throw new Error('Failed to connect to Redis');
         }
 
-        // Criar e iniciar servidor HTTP
         const app = createServer();
         
         const server = app.listen(config.port, () => {
@@ -27,7 +25,6 @@ async function main() {
             logger.info(`Health check: http://localhost:${config.port}/health`);
         });
 
-        // Tratamento de erros do servidor
         server.on('error', (error: any) => {
             if (error.code === 'EADDRINUSE') {
                 logger.error(`Port ${config.port} is already in use`);
@@ -43,12 +40,10 @@ async function main() {
     }
 }
 
-// Graceful shutdown
 async function shutdown(signal: string) {
     logger.info(`${signal} received, shutting down gracefully...`);
     
     try {
-        // Fechar conexão Redis
         await redis.quit();
         logger.info('Redis connection closed');
         
@@ -63,7 +58,6 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception:', error);
     shutdown('uncaughtException');
@@ -73,5 +67,4 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection:', { reason, promise });
 });
 
-// Iniciar aplicação
 main();

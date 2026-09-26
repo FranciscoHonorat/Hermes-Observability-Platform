@@ -6,7 +6,7 @@ import { config } from './config';
 const logger = new Logger('LogsProcessor');
 
 export async function processLogs(): Promise<void> {
-    logger.info('Logs processor iniciado');
+    logger.info('Logs processor started');
 
     while (true) {
         try {
@@ -29,13 +29,6 @@ export async function processLogs(): Promise<void> {
 
             const [, messages] = results[0] as [string, Array<[string, string[]]>];
 
-            // Logs are the highest-volume of the three pipelines, and this
-            // session's load testing found the Processor's sequential
-            // per-message DB round-trip is the real system throughput
-            // ceiling (~280 msg/s). So unlike metricsProcessor/spansProcessor,
-            // valid entries in this batch are inserted with ONE multi-row
-            // INSERT instead of N sequential ones — dead-lettering for
-            // per-message validation failures still happens individually.
             const valid: Array<{ log: LogEntry; messageId: string }> = [];
 
             for (const [messageId, fields] of messages) {
@@ -45,13 +38,9 @@ export async function processLogs(): Promise<void> {
                     const logData = fields[1];
                     entry = JSON.parse(logData);
 
-                    // Validar log
                     validateLogEntry(entry);
                 } catch (error: any) {
-                    // Poison pill: malformed JSON or a log that fails validation will
-                    // never succeed on retry, so ack it now to drain it from the pending
-                    // entries list instead of leaving it stuck there forever.
-                    logger.warn(`Log descartado (dead-letter) ${messageId}: ${error.message}`, { raw: fields[1] });
+                    logger.warn(`Log discarded (dead-letter) ${messageId}: ${error.message}`, { raw: fields[1] });
                     await redis.xack(REDIS_LOGS_STREAM, config.processor.logsConsumerGroup, messageId);
                     continue;
                 }
@@ -67,10 +56,8 @@ export async function processLogs(): Promise<void> {
             }
 
             try {
-                // Persistir todo o lote válido numa única query
                 await persistLogsBatch(valid);
 
-                // Registrar aplicações distintas do lote (por tenant)
                 const apps = new Map<string, { tenantId: number; appName: string }>();
                 for (const { log } of valid) {
                     const tenantId = log.tenantId ?? 1;
@@ -81,28 +68,21 @@ export async function processLogs(): Promise<void> {
                     await registerApplication(tenantId, appName);
                 }
 
-                // Confirmar processamento de todo o lote
                 await redis.xack(REDIS_LOGS_STREAM, config.processor.logsConsumerGroup, ...valid.map(v => v.messageId));
 
-                logger.info(`Lote de logs processado e confirmado: ${valid.length} entradas`);
+                logger.info(`Log batch processed and acknowledged: ${valid.length} entries`);
             } catch (error: any) {
-                // Transient failure (e.g. DB unavailable): the whole valid
-                // sub-batch is left unacked. Note this does NOT currently get
-                // redelivered — there's no XCLAIM/reclaim logic anywhere in
-                // this processor, so unacked entries just sit in the
-                // consumer group's pending list until someone looks. Same
-                // known gap as the metrics/spans pipelines; not fixed here.
-                logger.error(`Erro ao persistir lote de logs (${valid.length} entradas): ${error.message}`);
+                logger.error(`Error persisting log batch (${valid.length} entries): ${error.message}`);
             }
         } catch (error: any) {
-            logger.error(`Erro ao ler do Redis (logs): ${error.message}`);
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Espera antes de tentar novamente
+            logger.error(`Error reading from Redis (logs): ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
         }
     }
 }
 
 async function persistLogsBatch(items: Array<{ log: LogEntry; messageId: string }>): Promise<void> {
-    const COLUMNS = 9; // time, tenant_id, app_name, level, message, trace_id, span_id, attributes, stream_id
+    const COLUMNS = 9;
     const values: any[] = [];
     const placeholders: string[] = [];
 
@@ -113,7 +93,7 @@ async function persistLogsBatch(items: Array<{ log: LogEntry; messageId: string 
         );
         values.push(
             new Date(log.timestamp),
-            log.tenantId ?? 1, // Collector always sets this; 1 (default tenant) is a defensive fallback
+            log.tenantId ?? 1,
             log.serviceName || 'unknown',
             log.level,
             log.message,

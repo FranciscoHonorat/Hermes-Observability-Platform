@@ -1,5 +1,5 @@
-export const DEFAULT_COLLECT_INTERVAL = 10000; // 10 seconds
-export const DEFAULT_FLUSH_INTERVAL = 5000; // 5 seconds
+export const DEFAULT_COLLECT_INTERVAL = 10000;
+export const DEFAULT_FLUSH_INTERVAL = 5000;
 export const DEFAULT_BATCH_SIZE = 100;
 export const DEFAULT_RETENTION_DAYS = 30;
 
@@ -8,8 +8,6 @@ export const REDIS_METRICS_STREAM = 'hermes:metrics:stream';
 export const REDIS_TRACES_STREAM = 'hermes:traces:stream';
 export const REDIS_LOGS_STREAM = 'hermes:logs:stream';
 
-// Hash of api_keys.key_hash -> tenant_id, written by packages/admin,
-// read by packages/collector's apiKeyAuth. See docs/adr/0002-*.md.
 export const REDIS_API_KEYS_HASH = 'hermes:apikeys';
 
 export const METRIC_NAMES = {

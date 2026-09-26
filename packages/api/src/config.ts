@@ -23,18 +23,11 @@ export const config = {
         poolSize: parseInt(process.env.DB_POOL_SIZE || '10', 10)
     },
     cors: {
-        // In production CORS_ORIGIN must be set explicitly (a comma-separated
-        // allow-list); wildcard + credentials is a known misconfiguration, so
-        // we refuse to fall back to '*' once NODE_ENV=production.
         origin: process.env.CORS_ORIGIN
             ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
             : (isProduction ? requireEnv('CORS_ORIGIN') : '*'),
         credentials: true
     },
-    // JWT_SECRET itself is read by @hermes/shared's authUtilities (kept a
-    // pure, config-free utility there); this just enforces it's actually
-    // set before this service starts in production. See docs/adr/0002-*.md
-    // — replaces the old single-shared-token API_ADMIN_TOKEN entirely.
     jwtSecretRequired: isProduction ? requireEnv('JWT_SECRET') : process.env.JWT_SECRET,
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),

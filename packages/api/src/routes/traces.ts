@@ -5,7 +5,6 @@ import { Logger } from '@hermes/shared';
 const router = Router();
 const logger = new Logger('TracesAPI');
 
-// GET /api/v1/traces - Listar traces recentes
 router.get('/', async (req: Request, res: Response) => {
     try {
         const {
@@ -86,7 +85,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/traces/:traceId - Todos os spans de um trace
 router.get('/:traceId', async (req: Request, res: Response) => {
     try {
         const { traceId } = req.params;

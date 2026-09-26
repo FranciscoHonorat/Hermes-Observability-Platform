@@ -1,7 +1,5 @@
 package hermes
 
-// Increment records a counter event. Buffered, not sent immediately — see
-// the batching note in client.go's doc comment.
 func (c *Client) Increment(name string, value float64, labels map[string]any) {
 	c.enqueueMetric(Metric{
 		Name:      name,
@@ -13,7 +11,6 @@ func (c *Client) Increment(name string, value float64, labels map[string]any) {
 	})
 }
 
-// Gauge records an instantaneous value (e.g. active connections, queue depth).
 func (c *Client) Gauge(name string, value float64, unit MetricUnit, labels map[string]any) {
 	if unit == "" {
 		unit = UnitCount
@@ -28,7 +25,6 @@ func (c *Client) Gauge(name string, value float64, unit MetricUnit, labels map[s
 	})
 }
 
-// Histogram records one observation of a distribution (e.g. request duration).
 func (c *Client) Histogram(name string, value float64, unit MetricUnit, labels map[string]any) {
 	if unit == "" {
 		unit = UnitMilliseconds
