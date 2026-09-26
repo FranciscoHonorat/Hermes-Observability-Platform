@@ -7,12 +7,10 @@ export const httpMiddleware = () => {
     return (req: Request, res: Response, next: NextFunction) => {
         const start = Date.now();
 
-        //Captura quando a resposta terminar
         res.on('finish', () => {
             const duration = Date.now() - start;
             const statusCode = res.statusCode;
 
-            //Métrica de duração da request
             httpMetrics.push({
                 name: 'http.request.duration',
                 type: MetricType.HISTOGRAM,
@@ -26,7 +24,6 @@ export const httpMiddleware = () => {
                 }
             });
 
-            //Contador de requests
             httpMetrics.push({
                 name: 'http.request.total',
                 type: MetricType.COUNTER,
@@ -40,7 +37,6 @@ export const httpMiddleware = () => {
                 }
             });
 
-            //Contador de erros (status >= 400)
             if (statusCode >= 400) {
                 httpMetrics.push({
                     name: 'http.request.errors',
@@ -63,6 +59,6 @@ export const httpMiddleware = () => {
 
 export const getHttpMetrics = (): Metric[] => {
     const metrics = [...httpMetrics];
-    httpMetrics.length = 0; // Limpa as métricas após retorná-las
+    httpMetrics.length = 0;
     return metrics;
 };

@@ -19,22 +19,15 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
-    // Behind nginx (docker/nginx.conf) in every deployment — trust its
-    // X-Forwarded-For so express-rate-limit keys by the real client IP
-    // instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
     app.set('trust proxy', 1);
 
-    // Security headers
     app.use(helmet());
 
-    // CORS
     app.use(cors(config.cors));
 
-    // Body parsing
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
 
-    // Rate limiting per source IP
     app.use(rateLimit({
         windowMs: config.rateLimit.windowMs,
         max: config.rateLimit.max,
@@ -43,7 +36,6 @@ export function createServer(): Application {
         message: { error: 'Too many requests' }
     }));
 
-    // Request logging
     app.use((req: Request, res: Response, next: NextFunction) => {
         const start = Date.now();
         
@@ -59,7 +51,6 @@ export function createServer(): Application {
         next();
     });
 
-    // Health check
     app.get('/health', (req: Request, res: Response) => {
         res.json({ 
             status: 'ok',
@@ -69,7 +60,6 @@ export function createServer(): Application {
         });
     });
 
-    // Root endpoint
     app.get('/', (req: Request, res: Response) => {
         res.json({
             service: 'Hermes API',
@@ -128,13 +118,8 @@ export function createServer(): Application {
         });
     });
 
-    // Every route below requires an authenticated session — previously
-    // only mutations needed a token, but now every read needs tenant
-    // identity too, so this is centralized here instead of per-route like
-    // the old adminAuth. See docs/adr/0002-*.md.
     app.use('/api/v1', authenticate);
 
-    // API Routes
     app.use('/api/v1/metrics', metricsRouter);
     app.use('/api/v1/applications', applicationsRouter);
     app.use('/api/v1/alerts', alertsRouter);
@@ -144,7 +129,6 @@ export function createServer(): Application {
     app.use('/api/v1/anomalies', anomaliesRouter);
     app.use('/api/v1/recommendations', recommendationsRouter);
 
-    // 404 handler
     app.use((req: Request, res: Response) => {
         res.status(404).json({
             error: 'Not found',
@@ -153,7 +137,6 @@ export function createServer(): Application {
         });
     });
 
-    // Error handler (deve ser o último)
     app.use(errorHandler);
 
     return app;

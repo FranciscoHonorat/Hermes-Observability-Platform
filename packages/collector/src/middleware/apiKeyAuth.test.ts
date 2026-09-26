@@ -59,8 +59,6 @@ describe('apiKeyAuth', () => {
     const res = await request(app).get('/protected').set('x-api-key', 'a-real-key');
     expect(res.status).toBe(200);
     expect(res.body.tenantId).toBe(7);
-    // the raw key must never reach Redis in the clear — apiKeyAuth hashes it
-    // first (SHA-256 hex digest, 64 chars, not the raw 'a-real-key' string)
     expect(lookupMock).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
   });
 });

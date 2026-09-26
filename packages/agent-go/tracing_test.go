@@ -53,7 +53,7 @@ func TestParseTraceparentInvalid(t *testing.T) {
 		"",
 		"not-a-traceparent",
 		"00-tooshort-" + generateSpanID() + "-01",
-		generateTraceID(), // missing version/span/flags entirely
+		generateTraceID(),
 	}
 	for _, c := range cases {
 		if _, _, ok := parseTraceparent(c); ok {
@@ -95,7 +95,7 @@ func TestSpanHandle_EndIsIdempotent(t *testing.T) {
 	_, handle := client.StartSpan(context.Background(), "op", nil)
 
 	handle.End(SpanOK)
-	handle.End(SpanError) // must be a no-op, not a second buffered span
+	handle.End(SpanError)
 
 	client.mu.Lock()
 	n := len(client.spans)

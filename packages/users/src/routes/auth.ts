@@ -6,7 +6,7 @@ const router = Router();
 const logger = new Logger('AuthAPI');
 
 const isProduction = process.env.NODE_ENV === 'production';
-const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matches signToken's TTL
+const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function setSessionCookie(res: Response, token: string): void {
     res.cookie(COOKIE_NAME, token, {
@@ -26,7 +26,6 @@ function slugify(name: string): string {
         .replace(/^-+|-+$/g, '') || 'tenant';
 }
 
-// POST /api/v1/auth/signup - Cria um tenant + seu primeiro usuário (admin)
 router.post('/signup', async (req: Request, res: Response) => {
     try {
         const { tenantName, email, password } = req.body;
@@ -55,7 +54,7 @@ router.post('/signup', async (req: Request, res: Response) => {
                 tenant = tenantResult.rows[0];
                 break;
             } catch (error: any) {
-                if (error.code === '23505') continue; // slug collision, retry with a suffix
+                if (error.code === '23505') continue;
                 throw error;
             }
         }
@@ -86,7 +85,6 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/v1/auth/login
 router.post('/login', async (req: Request, res: Response) => {
     try {
         const { tenantSlug, email, password } = req.body;
@@ -125,13 +123,11 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/v1/auth/logout
 router.post('/logout', (req: Request, res: Response) => {
     res.clearCookie(COOKIE_NAME, { path: '/' });
     res.json({ message: 'Logged out' });
 });
 
-// GET /api/v1/auth/me
 router.get('/me', authenticate, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(

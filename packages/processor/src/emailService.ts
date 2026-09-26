@@ -6,7 +6,6 @@ const logger = new Logger('EmailService');
 
 let transporter: Transporter | null = null;
 
-// Inicializar transporter do Nodemailer
 function getTransporter(): Transporter {
     if (!transporter) {
         transporter = nodemailer.createTransport({
@@ -19,7 +18,7 @@ function getTransporter(): Transporter {
             } : undefined
         });
 
-        logger.info('Transporter SMTP configurado', {
+        logger.info('SMTP transporter configured', {
             host: config.smtp.host,
             port: config.smtp.port
         });
@@ -34,10 +33,9 @@ export async function sendAlertEmail(
     htmlBody: string
 ): Promise<void> {
     try {
-        // Verificar se as credenciais SMTP estão configuradas
         if (!config.smtp.auth.user || !config.smtp.auth.pass) {
-            logger.warn('Credenciais SMTP não configuradas. Email não será enviado.');
-            logger.info(`[MODO DESENVOLVIMENTO] Email para ${to}:`, { subject, htmlBody });
+            logger.warn('SMTP credentials not configured. Email will not be sent.');
+            logger.info(`[DEVELOPMENT MODE] Email for ${to}:`, { subject, htmlBody });
             return;
         }
 
@@ -52,14 +50,14 @@ export async function sendAlertEmail(
 
         const info = await transport.sendMail(mailOptions);
         
-        logger.info('Email enviado com sucesso', {
+        logger.info('Email sent successfully', {
             to,
             subject,
             messageId: info.messageId
         });
 
     } catch (error: any) {
-        logger.error('Erro ao enviar email:', {
+        logger.error('Error sending email:', {
             to,
             subject,
             error: error.message
@@ -68,20 +66,19 @@ export async function sendAlertEmail(
     }
 }
 
-// Função para testar a configuração SMTP
 export async function testSmtpConnection(): Promise<boolean> {
     try {
         if (!config.smtp.auth.user || !config.smtp.auth.pass) {
-            logger.warn('Credenciais SMTP não configuradas');
+            logger.warn('SMTP credentials not configured');
             return false;
         }
 
         const transport = getTransporter();
         await transport.verify();
-        logger.info('Conexão SMTP verificada com sucesso');
+        logger.info('SMTP connection verified successfully');
         return true;
     } catch (error: any) {
-        logger.error('Falha ao verificar conexão SMTP:', error);
+        logger.error('Failed to verify SMTP connection:', error);
         return false;
     }
 }

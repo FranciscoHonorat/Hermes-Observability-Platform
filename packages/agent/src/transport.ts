@@ -34,7 +34,6 @@ export class MetricTransport {
         } else {
             logger.error(`Error sending metrics: ${error.message}`);
         }
-        // Não lança erro para não quebrar a aplicação
         }
     }
 
@@ -53,7 +52,6 @@ export class MetricTransport {
         } else {
             logger.error(`Error sending spans: ${error.message}`);
         }
-        // Não lança erro para não quebrar a aplicação
         }
     }
 
@@ -72,7 +70,6 @@ export class MetricTransport {
         } else {
             logger.error(`Error sending logs: ${error.message}`);
         }
-        // Não lança erro para não quebrar a aplicação
         }
     }
 }

@@ -1,10 +1,3 @@
-"""Postgres access — direct connection, no HTTP call to packages/api, same
-convention as packages/processor (see docs/adr/0001-*.md).
-
-Uses psycopg (v3), not psycopg2: psycopg2-binary has no prebuilt wheel yet
-for newer CPython releases and falls back to a source build requiring
-pg_config; psycopg[binary] ships one. Actively maintained, same %s-style
-placeholders, so no SQL changes needed."""
 import logging
 
 import psycopg

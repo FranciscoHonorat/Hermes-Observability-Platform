@@ -63,6 +63,6 @@ describe('GET /api/v1/anomalies/:id', () => {
     query.mockResolvedValueOnce({ rows: [] });
     await request(app).get('/api/v1/anomalies/1').set('Authorization', auth());
     const [, params] = query.mock.calls[0];
-    expect(params).toEqual(['1', 1]); // [id, TEST_TENANT_ID]
+    expect(params).toEqual(['1', 1]);
   });
 });

@@ -11,9 +11,7 @@ function requireEnv(name: string): string {
     return value;
 }
 
-// Configurações para o serviço de processamento
 export const config = {
-    // Configurações do banco de dados PostgreSQL
     database: {
         host: process.env.POSTGRES_HOST || 'localhost',
         port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
@@ -23,13 +21,11 @@ export const config = {
         poolSize: 10
     } as DatabaseConfig,
 
-    // Configurações do Redis para filas e cache
     redis: {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379', 10)
     } as RedisConfig,
 
-    // Configurações do consumidor de mensagens
     processor: {
         consumerGroup: 'processor-group',
         tracesConsumerGroup: 'traces-processor-group',
@@ -37,10 +33,9 @@ export const config = {
         consumerName: 'processor-1',
         batchSize: 10,
         blockTimeout: 5000,
-        pollInterval: 5000, // ms
+        pollInterval: 5000,
     },
 
-    // Configurações do SMTP para envio de alertas por email
     smtp: {
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -52,6 +47,5 @@ export const config = {
         from: process.env.SMTP_FROM || 'alerts@hermes.io'
     },
 
-    // Configurações para o intervalo de verificação de alertas
-    alertCheckInterval: 30000 // 30 segundos
+    alertCheckInterval: 30000
 };

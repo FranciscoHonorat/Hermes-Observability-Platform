@@ -7,18 +7,6 @@ interface TracedRequestConfig extends InternalAxiosRequestConfig {
     [SPAN_SYMBOL]?: SpanHandle;
 }
 
-/**
- * Opt-in instrumentation for an axios instance: injects the current trace's
- * `traceparent` header on every outgoing request and wraps it in a child
- * span, so a call to another Hermes-instrumented service continues the same
- * trace instead of starting a new, disconnected one. This — not the
- * per-request timing httpTracingMiddleware alone provides — is what makes
- * tracing actually *distributed*.
- *
- * Deliberately opt-in rather than a global axios patch: call it on whatever
- * axios instance your app already uses for outgoing calls.
- *   agent.instrumentAxios(myAxiosInstance);
- */
 export function instrumentAxios(axiosInstance: AxiosInstance): void {
     axiosInstance.interceptors.request.use((config: TracedRequestConfig) => {
         const method = (config.method || 'get').toUpperCase();

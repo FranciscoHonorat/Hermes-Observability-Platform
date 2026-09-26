@@ -5,8 +5,6 @@ import { Logger, validateRecommendationStatusUpdate, ValidationError, requireRol
 const router = Router();
 const logger = new Logger('RecommendationsAPI');
 
-// Only the status field is mutable (acknowledge/dismiss) — admin-only, same
-// as alerts.ts's mutating routes.
 router.use((req, res, next) => {
     if (['PUT'].includes(req.method)) {
         return requireRole('admin')(req, res, next);
@@ -14,7 +12,6 @@ router.use((req, res, next) => {
     next();
 });
 
-// GET /api/v1/recommendations - Listar recomendações
 router.get('/', async (req: Request, res: Response) => {
     try {
         const {
@@ -77,7 +74,6 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/v1/recommendations/:id - Detalhes de uma recomendação
 router.get('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -99,7 +95,6 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/v1/recommendations/:id - Acknowledge/dismiss uma recomendação
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

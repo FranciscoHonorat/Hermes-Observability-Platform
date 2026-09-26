@@ -2,32 +2,32 @@
 
 Complete demonstration application showing how to use the **Hermes Agent SDK** to instrument a Node.js/Express application with observability metrics.
 
-## 📋 What This Demo Shows
+## What This Demo Shows
 
-### ✅ Automatic Metrics
-- ✨ **CPU Usage** - Process CPU usage
-- 💾 **Memory** - Heap, RSS, external memory
-- ⏱️ **Event Loop Lag** - Event loop latency
-- 🔌 **Active Handles** - Active Node.js handles
+### Automatic Metrics
+- **CPU Usage** - Process CPU usage
+- **Memory** - Heap, RSS, external memory
+- **Event Loop Lag** - Event loop latency
+- **Active Handles** - Active Node.js handles
 
-### ✅ HTTP Metrics
-- 📊 **Request Count** - Total requests by method/path/status
-- ⏲️ **Request Duration** - Latency of each request (histogram)
-- ❌ **Error Count** - Total 4xx/5xx errors
+### HTTP Metrics
+- **Request Count** - Total requests by method/path/status
+- **Request Duration** - Latency of each request (histogram)
+- **Error Count** - Total 4xx/5xx errors
 
-### ✅ Business Metrics
-- 👥 **Users Created** - Total users created
-- 🛒 **Orders Created** - Total orders created
-- 💰 **GMV** (Gross Merchandise Value) - Total sales value
-- 📦 **Order Value & Quantity** - Value and quantity distribution
+### Business Metrics
+- **Users Created** - Total users created
+- **Orders Created** - Total orders created
+- **GMV** (Gross Merchandise Value) - Total sales value
+- **Order Value & Quantity** - Value and quantity distribution
 
-### ✅ Advanced Features
-- 🏷️ **Labels/Tags** - Customizable dimensions (product, status, etc)
-- 📈 **Counter, Gauge, Histogram** - All metric types
-- 🚦 **Traffic Simulator** - Automatic traffic simulator
-- 💥 **Error Simulation** - Endpoint to test error alerts
+### Advanced Features
+- **Labels/Tags** - Customizable dimensions (product, status, etc)
+- **Counter, Gauge, Histogram** - All metric types
+- **Traffic Simulator** - Automatic traffic simulator
+- **Error Simulation** - Endpoint to test error alerts
 
-## 🚀 How to Run
+## How to Run
 
 ### Prerequisites
 
@@ -66,7 +66,7 @@ npm start
 
 The application will be running at: **http://localhost:3030**
 
-## 🎯 Available Endpoints
+## Available Endpoints
 
 ### Main API
 
@@ -87,7 +87,7 @@ The application will be running at: **http://localhost:3030**
 | POST   | `/api/simulator/start`    | Start traffic simulator           |
 | POST   | `/api/simulator/stop`     | Stop traffic simulator            |
 
-## 📝 Usage Examples
+## Usage Examples
 
 ### 1. Create User
 
@@ -191,7 +191,7 @@ curl -X POST http://localhost:3030/api/simulator/start
 curl -X POST http://localhost:3030/api/simulator/stop
 ```
 
-## 📊 Viewing Metrics
+## Viewing Metrics
 
 ### 1. Via Dashboard (UI)
 
@@ -227,12 +227,12 @@ curl "http://localhost:3000/api/v1/metrics/names?appName=demo-ecommerce"
 
 The demo app shows logs in the console when it initializes:
 ```
-✅ Hermes Agent initialized
-📊 Sending metrics to: http://localhost:4000/metrics
-🏷️  App Name: demo-ecommerce
+Hermes Agent initialized
+Sending metrics to: http://localhost:4000/metrics
+App Name: demo-ecommerce
 ```
 
-## 🚨 Testing Alerts
+## Testing Alerts
 
 ### Create Alert for High Error Rate
 
@@ -270,7 +270,7 @@ After ~1 minute, the alert will be triggered and you'll receive:
 curl "http://localhost:3000/api/v1/alerts/1/history"
 ```
 
-## 🔍 Code Example - Instrumentation
+## Code Example - Instrumentation
 
 ### Initialize Agent
 
@@ -334,7 +334,7 @@ agent.histogram('order_quantity', {
 }).observe(quantity);
 ```
 
-## 📚 Code Structure
+## Code Structure
 
 ```
 demo-app/
@@ -353,7 +353,7 @@ demo-app/
 5. **Traffic Simulator** - Automatic traffic generator
 6. **Server Start** - Server initialization
 
-## 🎓 Key Learnings
+## Key Learnings
 
 ### 1. Metric Types
 
@@ -365,7 +365,7 @@ demo-app/
 
 ### 2. Labels/Tags Best Practices
 
-✅ **Good:**
+**Good:**
 ```javascript
 agent.counter('http_requests_total', {
   method: 'GET',
@@ -373,11 +373,11 @@ agent.counter('http_requests_total', {
 }).inc();
 ```
 
-❌ **Avoid:**
+**Avoid:**
 ```javascript
 // Don't use high cardinality values (user_id, request_id, etc)
 agent.counter('requests_per_user', {
-  user_id: '12345'  // ❌ High cardinality
+  user_id: '12345'  // High cardinality
 }).inc();
 ```
 
@@ -392,7 +392,7 @@ HermesAgent.init({
 });
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Metrics don't appear on Dashboard
 
@@ -402,7 +402,7 @@ HermesAgent.init({
    ```
 
 2. **Check demo app logs:**
-   - Should show "✅ Hermes Agent initialized"
+   - Should show "Hermes Agent initialized"
 
 3. **Check if there are metrics in the database:**
    ```bash
@@ -439,17 +439,17 @@ npm install
 PORT=3040 npm start
 ```
 
-## 📖 Next Steps
+## Next Steps
 
 1. **Explore the Dashboard** - http://localhost:3001
 2. **Read the API documentation** - [API.md](../../API.md)
 3. **Configure Alerts** - Create custom alerts
 4. **Test in production** - Instrument your real application
 
-## 🤝 Contributing
+## Contributing
 
 Suggestions to improve this demo? Open an [issue](https://github.com/FranciscoHonorat/hermes-observability/issues)!
 
 ---
 
-**Developed with ❤️ by Francisco Honorat**
+**Developed by Francisco Honorat**

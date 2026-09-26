@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-// capturingServer records every request body posted to it, keyed by path.
 type capturingServer struct {
 	mu    sync.Mutex
 	posts map[string][][]byte
@@ -125,7 +124,6 @@ func TestStartStop_FlushesOnStop(t *testing.T) {
 	cs := newCapturingServer()
 	defer cs.srv.Close()
 
-	// Long interval so the tick itself never fires — only Stop()'s flush should.
 	client := NewClient(WithCollectorURL(cs.srv.URL), WithServiceName("test-svc"), WithFlushInterval(time.Hour))
 	client.Start()
 	client.Increment("x", 1, nil)

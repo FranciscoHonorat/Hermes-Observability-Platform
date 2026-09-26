@@ -69,7 +69,7 @@ docker exec -it hermes-redis redis-cli
 > XPENDING hermes:metrics processor-group   # entries here are stuck (see below)
 docker logs hermes-processor
 ```
-A non-zero, non-shrinking `XPENDING` count that isn't the malformed-metric dead-letter path (those are acked immediately and logged as `Métrica descartada`) means the processor is failing to persist — check `docker logs hermes-processor` for a Postgres connection error first.
+A non-zero, non-shrinking `XPENDING` count that isn't the malformed-metric dead-letter path (those are acked immediately and logged as `Metric discarded`) means the processor is failing to persist — check `docker logs hermes-processor` for a Postgres connection error first.
 
 **Dashboard shows no data**
 ```bash

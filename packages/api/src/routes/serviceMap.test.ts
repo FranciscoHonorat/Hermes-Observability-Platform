@@ -52,14 +52,12 @@ describe('GET /api/v1/service-map', () => {
       errorCount: 2,
       avgDurationMs: 80.5
     }]);
-    // caller node exists (as a source) with no incoming calls of its own
     expect(res.body.nodes).toContainEqual({
       serviceName: 'checkout-api',
       callCount: 0,
       errorCount: 0,
       errorRate: 0
     });
-    // callee node's stats are summed from the incoming edge
     expect(res.body.nodes).toContainEqual({
       serviceName: 'payment-service',
       callCount: 5,

@@ -28,13 +28,10 @@ export const config = {
             : (isProduction ? requireEnv('CORS_ORIGIN') : '*'),
         credentials: true
     },
-    // JWT_SECRET itself is read by @hermes/shared's authUtilities (kept a
-    // pure, config-free utility there); this just enforces it's actually
-    // set before this service starts in production.
     jwtSecretRequired: isProduction ? requireEnv('JWT_SECRET') : process.env.JWT_SECRET,
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
-        max: parseInt(process.env.RATE_LIMIT_MAX || '60', 10) // auth endpoints: tighter than data APIs
+        max: parseInt(process.env.RATE_LIMIT_MAX || '60', 10)
     },
     environment: process.env.NODE_ENV || 'development'
 };

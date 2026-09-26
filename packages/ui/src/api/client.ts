@@ -3,13 +3,12 @@ import axios from 'axios';
 const apiClient = axios.create({
   baseURL: '/api',
   timeout: 10000,
-  withCredentials: true, // sends the httpOnly session cookie set by /api/v1/auth
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -18,9 +17,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-// packages/users and packages/admin are separate services, reachable at
-// /api/v1/auth and /api/v1/admin (see docker/nginx.conf) rather than
-// through the /api shorthand apiClient uses for the main data API.
 const authAdminClient = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
@@ -166,7 +162,6 @@ export interface Recommendation {
   updated_at: string;
 }
 
-// Metrics API
 export const metricsApi = {
   getMetrics: async (params?: {
     appName?: string;
@@ -186,7 +181,6 @@ export const metricsApi = {
     endTime: string;
     interval?: string;
   }) => {
-    // Convert ISO strings to timestamps and rename parameters to match API
     const queryParams = {
       appName: params.appName || 'unknown',
       metricName: params.metricName,
@@ -202,7 +196,6 @@ export const metricsApi = {
   }
 };
 
-// Applications API
 export const applicationsApi = {
   getApplications: async () => {
     const response = await apiClient.get<{ applications: Application[]; count: number }>('/applications');
@@ -215,7 +208,6 @@ export const applicationsApi = {
   }
 };
 
-// Alerts API
 export const alertsApi = {
   getRules: async (params?: { appName?: string; enabled?: boolean }) => {
     const response = await apiClient.get<{ alerts: AlertRule[]; count: number }>('/alerts', { params });
@@ -244,7 +236,6 @@ export const alertsApi = {
   }
 };
 
-// Traces API
 export const tracesApi = {
   getTraces: async (params?: { serviceName?: string; startTime?: string; endTime?: string; limit?: number }) => {
     const queryParams = {
@@ -263,7 +254,6 @@ export const tracesApi = {
   }
 };
 
-// Logs API
 export const logsApi = {
   getLogs: async (params?: {
     appName?: string;
@@ -288,7 +278,6 @@ export const logsApi = {
   }
 };
 
-// Service Map API
 export const serviceMapApi = {
   getServiceMap: async (params?: { startTime?: string; endTime?: string }) => {
     const queryParams = {
@@ -300,7 +289,6 @@ export const serviceMapApi = {
   }
 };
 
-// Anomalies API
 export const anomaliesApi = {
   getAnomalies: async (params?: { appName?: string; metricName?: string; severity?: string; limit?: number }) => {
     const response = await apiClient.get<{ anomalies: Anomaly[]; count: number }>('/anomalies', { params });
@@ -308,7 +296,6 @@ export const anomaliesApi = {
   }
 };
 
-// Recommendations API
 export const recommendationsApi = {
   getRecommendations: async (params?: { appName?: string; status?: string; category?: string }) => {
     const response = await apiClient.get<{ recommendations: Recommendation[]; count: number }>('/recommendations', { params });
@@ -345,10 +332,9 @@ export interface ApiKeyRecord {
   label: string | null;
   created_at: string;
   revoked_at: string | null;
-  key?: string; // present only in the response right after creation
+  key?: string;
 }
 
-// Auth API — packages/users
 export const authApi = {
   signup: async (tenantName: string, email: string, password: string) => {
     const response = await authAdminClient.post('/auth/signup', { tenantName, email, password });
@@ -370,7 +356,6 @@ export const authApi = {
   }
 };
 
-// Admin API — packages/admin (tenant-admin-only)
 export const adminApi = {
   getUsers: async () => {
     const response = await authAdminClient.get<{ users: AdminUser[]; count: number }>('/admin/users');

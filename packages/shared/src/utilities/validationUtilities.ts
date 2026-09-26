@@ -1,6 +1,3 @@
-/**
- * Validation utilities
- */
 
 import { Metric, MetricType, AlertRuleInput, AlertRuleCondition, Span, SpanStatus, LogEntry, LogEntryLevel, RecommendationStatus, RecommendationStatusUpdate } from '../types';
 
@@ -126,7 +123,6 @@ function validateEmailRecipients(value: any): asserts value is string[] {
   }
 }
 
-/** Full validation for creating a new alert rule (POST). */
 export const validateAlertRule = (rule: any): rule is AlertRuleInput => {
   if (!rule || typeof rule !== 'object') {
     throw new ValidationError('Alert rule must be an object');
@@ -161,11 +157,6 @@ export const validateAlertRule = (rule: any): rule is AlertRuleInput => {
   return true;
 };
 
-/**
- * Partial validation for updating an existing alert rule (PUT), where any
- * field may be omitted (left unchanged via COALESCE) but present fields
- * must still be well-formed.
- */
 export const validateAlertRuleUpdate = (rule: any): rule is Partial<AlertRuleInput> => {
   if (!rule || typeof rule !== 'object') {
     throw new ValidationError('Alert rule update must be an object');
@@ -202,7 +193,6 @@ export const validateAlertRuleUpdate = (rule: any): rule is Partial<AlertRuleInp
   return true;
 };
 
-/** Validation for updating a recommendation's status (PUT) — the only mutable field. */
 export const validateRecommendationStatusUpdate = (body: any): body is RecommendationStatusUpdate => {
   if (!body || typeof body !== 'object') {
     throw new ValidationError('Recommendation status update must be an object');

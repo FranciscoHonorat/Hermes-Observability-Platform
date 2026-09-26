@@ -32,8 +32,8 @@ describe('POST /api/v1/auth/signup', () => {
 
   it('creates a tenant and its first admin user, and sets a session cookie', async () => {
     query
-      .mockResolvedValueOnce({ rows: [{ id: 1, name: 'Acme', slug: 'acme', created_at: new Date().toISOString() }] }) // tenant insert
-      .mockResolvedValueOnce({ rows: [{ id: 1, tenant_id: 1, email: 'a@acme.test', role: 'admin', created_at: new Date().toISOString() }] }); // user insert
+      .mockResolvedValueOnce({ rows: [{ id: 1, name: 'Acme', slug: 'acme', created_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [{ id: 1, tenant_id: 1, email: 'a@acme.test', role: 'admin', created_at: new Date().toISOString() }] });
 
     const res = await request(app)
       .post('/api/v1/auth/signup')
@@ -49,7 +49,7 @@ describe('POST /api/v1/auth/signup', () => {
     const collision: any = new Error('duplicate key');
     collision.code = '23505';
     query
-      .mockRejectedValueOnce(collision) // first slug taken
+      .mockRejectedValueOnce(collision)
       .mockResolvedValueOnce({ rows: [{ id: 2, name: 'Acme', slug: 'acme-xyz1', created_at: new Date().toISOString() }] })
       .mockResolvedValueOnce({ rows: [{ id: 2, tenant_id: 2, email: 'b@acme.test', role: 'admin', created_at: new Date().toISOString() }] });
 

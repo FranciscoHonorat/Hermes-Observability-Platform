@@ -1,25 +1,25 @@
 # Hermes Collector
 
-Serviço responsável por receber métricas via HTTP e enviá-las para o Redis Stream para processamento assíncrono.
+Service responsible for receiving metrics via HTTP and sending them to Redis Stream for asynchronous processing.
 
-## 📋 Funcionalidades
+## Features
 
-- ✅ Recebe métricas via HTTP POST
-- ✅ Valida formato e conteúdo das métricas
-- ✅ Envia métricas para Redis Stream
-- ✅ Suporta batch de métricas
-- ✅ Health checks
-- ✅ Tratamento de erros robusto
+- Receives metrics via HTTP POST
+- Validates metric format and content
+- Sends metrics to Redis Stream
+- Supports metric batching
+- Health checks
+- Robust error handling
 
-## 🚀 Como Usar
+## How to Use
 
-### Instalação
+### Installation
 
 ```bash
 npm install
 ```
 
-### Desenvolvimento
+### Development
 
 ```bash
 npm run dev
@@ -31,15 +31,15 @@ npm run dev
 npm run build
 ```
 
-### Produção
+### Production
 
 ```bash
 npm start
 ```
 
-## 🔧 Configuração
+## Configuration
 
-Variáveis de ambiente:
+Environment variables:
 
 ```env
 COLLECTOR_PORT=4318
@@ -49,11 +49,11 @@ MAX_BATCH_SIZE=1000
 NODE_ENV=development
 ```
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### POST /api/v1/metrics
 
-Recebe um batch de métricas.
+Receives a batch of metrics.
 
 **Request:**
 ```json
@@ -90,7 +90,7 @@ Recebe um batch de métricas.
 
 ### GET /health
 
-Health check do serviço.
+Service health check.
 
 **Response:**
 ```json
@@ -101,14 +101,14 @@ Health check do serviço.
 }
 ```
 
-## 🏗️ Arquitetura
+## Architecture
 
 ```
 ┌─────────────┐      HTTP/POST      ┌───────────────┐
 │   Agent     │ ─────────────────> │   Collector   │
 │ (@hermes/   │                     │               │
-│   agent)    │                     │  - Valida     │
-└─────────────┘                     │  - Enfileira  │
+│   agent)    │                     │  - Validates  │
+└─────────────┘                     │  - Enqueues   │
                                     └───────┬───────┘
                                             │
                                             │ Redis Stream
@@ -121,22 +121,22 @@ Health check do serviço.
                                             ▼
                                     ┌───────────────┐
                                     │   Processor   │
-                                    │  - Processa   │
-                                    │  - Persiste   │
+                                    │  - Processes  │
+                                    │  - Persists   │
                                     └───────────────┘
 ```
 
-## 📊 Logs
+## Logs
 
-O Collector usa o Logger do @hermes/shared e registra:
+The Collector uses the Logger from @hermes/shared and records:
 
-- Conexão com Redis
-- Requests recebidos
-- Métricas aceitas/rejeitadas
-- Erros de validação
-- Erros de sistema
+- Redis connection
+- Requests received
+- Metrics accepted/rejected
+- Validation errors
+- System errors
 
-Exemplo:
+Example:
 ```
 [Collector] INFO: Starting Hermes Collector...
 [Redis] INFO: Redis connected
@@ -145,31 +145,31 @@ Exemplo:
 [MetricsRoute] INFO: Batch processed: 10 accepted, 0 rejected
 ```
 
-## 🐳 Docker
+## Docker
 
-O Collector pode ser executado via Docker:
+The Collector can be run via Docker:
 
 ```bash
 docker build -f docker/Dockerfile.collector -t hermes-collector .
 docker run -p 4318:4318 -e REDIS_HOST=redis hermes-collector
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
-### Erro: Failed to connect to Redis
+### Error: Failed to connect to Redis
 
-Verifique se o Redis está rodando:
+Check that Redis is running:
 ```bash
 redis-cli ping
 ```
 
-### Erro: Port already in use
+### Error: Port already in use
 
-Mude a porta via variável de ambiente:
+Change the port via environment variable:
 ```bash
 COLLECTOR_PORT=4319 npm start
 ```
 
-### Métricas sendo rejeitadas
+### Metrics being rejected
 
-Verifique os logs para ver erros de validação. Certifique-se que as métricas atendem o schema do @hermes/shared.
+Check the logs for validation errors. Make sure the metrics match the @hermes/shared schema.

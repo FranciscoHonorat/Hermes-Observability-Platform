@@ -4,7 +4,6 @@ import { Metric, MetricType, MetricUnit } from '@hermes/shared';
 export const collectMemoryMetrics = (): Metric[] => {
     const metrics: Metric[] = [];
 
-    //System Memory
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
@@ -34,7 +33,6 @@ export const collectMemoryMetrics = (): Metric[] => {
         timestamp: Date.now()
     });
 
-    // Process Memory
     const processMemory = process.memoryUsage();
 
     metrics.push({

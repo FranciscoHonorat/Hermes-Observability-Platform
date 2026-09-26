@@ -6,12 +6,10 @@ import { config } from '../config';
 const router = Router();
 const logger = new Logger('MetricsRoute');
 
-// POST /api/v1/metrics - Receber métricas
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const batch: MetricBatch = req.body;
 
-        // Validar formato do batch
         if (!batch.metrics || !Array.isArray(batch.metrics)) {
             return res.status(400).json({ 
                 error: 'Invalid batch format',
@@ -19,7 +17,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             });
         }
 
-        // Validar tamanho do batch
         if (batch.metrics.length > config.maxBatchSize) {
             return res.status(400).json({ 
                 error: 'Batch too large',
@@ -34,20 +31,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         let rejected = 0;
         const errors: string[] = [];
 
-        // Processar cada métrica
         for (let i = 0; i < batch.metrics.length; i++) {
             const metric = batch.metrics[i];
             
             try {
-                // Validar métrica
                 validateMetric(metric);
 
-                // tenantId is always overwritten here, never trusted from
-                // the client — apiKeyAuth (mounted in front of this route)
-                // is what resolves it. See docs/adr/0002-*.md.
                 metric.tenantId = req.tenantId;
 
-                // Adicionar ao Redis Stream
                 await addMetricToStream(metric);
                 accepted++;
 
@@ -67,7 +58,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
         logger.info(`Batch processed: ${accepted} accepted, ${rejected} rejected`);
 
-        // Retornar resultado
         const response: any = {
             accepted,
             rejected,
@@ -90,7 +80,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-// GET /api/v1/metrics/health - Health check específico de métricas
 router.get('/health', (req: Request, res: Response) => {
     res.json({ 
         status: 'ok',

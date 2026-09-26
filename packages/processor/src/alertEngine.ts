@@ -36,13 +36,11 @@ interface AlertState {
     lastNotificationTime?: Date;
 }
 
-// Mapa para controlar estado dos alertas (evita spam)
 const alertStates = new Map<number, AlertState>();
 
 export async function startAlertEngine(): Promise<void> {
-    logger.info('Alert Engine iniciado');
+    logger.info('Alert Engine started');
 
-    // Loop infinito para verificar alertas periodicamente
     while (true) {
         try {
             await checkAlerts();
@@ -50,7 +48,7 @@ export async function startAlertEngine(): Promise<void> {
                 setTimeout(resolve, config.alertCheckInterval)
             );
         } catch (error) {
-            logger.error('Erro ao verificar alertas:', error);
+            logger.error('Error checking alerts:', error);
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
     }
@@ -58,7 +56,6 @@ export async function startAlertEngine(): Promise<void> {
 
 async function checkAlerts(): Promise<void> {
     try {
-        // Buscar todas as regras de alerta ativas
         const rulesResult = await pool.query<AlertRule>(
             `SELECT id, tenant_id, name, description, metric_name, condition,
                     threshold, app_name, email_recipients, enabled
@@ -67,20 +64,19 @@ async function checkAlerts(): Promise<void> {
         );
 
         const rules = rulesResult.rows;
-        logger.info(`Verificando ${rules.length} regras de alerta`);
+        logger.info(`Checking ${rules.length} alert rules`);
 
         for (const rule of rules) {
             await evaluateRule(rule);
         }
     } catch (error) {
-        logger.error('Erro ao buscar regras de alerta:', error);
+        logger.error('Error fetching alert rules:', error);
         throw error;
     }
 }
 
 async function evaluateRule(rule: AlertRule): Promise<void> {
     try {
-        // Buscar o valor mais recente da métrica (dentro do tenant da regra)
         const query = rule.app_name
             ? `SELECT value, time, app_name FROM metrics
                WHERE tenant_id = $1 AND metric_name = $2 AND app_name = $3
@@ -96,7 +92,7 @@ async function evaluateRule(rule: AlertRule): Promise<void> {
         const result = await pool.query(query, params);
 
         if (result.rows.length === 0) {
-            return; // Métrica não encontrada
+            return;
         }
 
         const metric = result.rows[0];
@@ -112,31 +108,26 @@ async function evaluateRule(rule: AlertRule): Promise<void> {
             isTriggered: false
         };
 
-        // Se o alerta foi disparado e não estava disparado antes
         if (triggered && !state.isTriggered) {
-            logger.warn(`🚨 Alerta disparado: ${rule.name}`, {
+            logger.warn(`Alert triggered: ${rule.name}`, {
                 metric: rule.metric_name,
                 value: currentValue,
                 threshold: rule.threshold,
                 condition: rule.condition
             });
 
-            // Enviar notificação
             await sendNotification(rule, metric, currentValue);
 
-            // Registrar alerta no banco
             await recordAlert(rule.tenant_id, rule.id, metric.app_name, currentValue);
 
-            // Atualizar estado
             alertStates.set(rule.id, {
                 ruleId: rule.id,
                 isTriggered: true,
                 lastNotificationTime: new Date()
             });
         } 
-        // Se não está mais disparado mas estava antes
         else if (!triggered && state.isTriggered) {
-            logger.info(`✅ Alerta resolvido: ${rule.name}`);
+            logger.info(`Alert resolved: ${rule.name}`);
             
             alertStates.set(rule.id, {
                 ruleId: rule.id,
@@ -145,7 +136,7 @@ async function evaluateRule(rule: AlertRule): Promise<void> {
         }
 
     } catch (error) {
-        logger.error(`Erro ao avaliar regra ${rule.name}:`, error);
+        logger.error(`Error evaluating rule ${rule.name}:`, error);
     }
 }
 
@@ -162,7 +153,7 @@ export function evaluateCondition(
         case 'eq':
             return value === threshold;
         default:
-            logger.warn(`Condição desconhecida: ${condition}`);
+            logger.warn(`Unknown condition: ${condition}`);
             return false;
     }
 }
@@ -173,25 +164,25 @@ async function sendNotification(
     currentValue: number
 ): Promise<void> {
     try {
-        const subject = `🚨 Alerta: ${rule.name}`;
+        const subject = `Alert: ${rule.name}`;
         const body = `
-            <h2>Alerta Disparado</h2>
-            <p><strong>Regra:</strong> ${escapeHtml(rule.name)}</p>
-            <p><strong>Descrição:</strong> ${escapeHtml(rule.description)}</p>
-            <p><strong>Aplicação:</strong> ${escapeHtml(metric.app_name)}</p>
-            <p><strong>Métrica:</strong> ${escapeHtml(rule.metric_name)}</p>
-            <p><strong>Valor Atual:</strong> ${escapeHtml(currentValue)}</p>
-            <p><strong>Condição:</strong> ${escapeHtml(rule.condition)} ${escapeHtml(rule.threshold)}</p>
-            <p><strong>Data/Hora:</strong> ${new Date().toISOString()}</p>
+            <h2>Alert Triggered</h2>
+            <p><strong>Rule:</strong> ${escapeHtml(rule.name)}</p>
+            <p><strong>Description:</strong> ${escapeHtml(rule.description)}</p>
+            <p><strong>Application:</strong> ${escapeHtml(metric.app_name)}</p>
+            <p><strong>Metric:</strong> ${escapeHtml(rule.metric_name)}</p>
+            <p><strong>Current Value:</strong> ${escapeHtml(currentValue)}</p>
+            <p><strong>Condition:</strong> ${escapeHtml(rule.condition)} ${escapeHtml(rule.threshold)}</p>
+            <p><strong>Date/Time:</strong> ${new Date().toISOString()}</p>
         `;
 
         for (const recipient of rule.email_recipients) {
             await sendAlertEmail(recipient, subject, body);
         }
 
-        logger.info(`Notificações enviadas para: ${rule.email_recipients.join(', ')}`);
+        logger.info(`Notifications sent to: ${rule.email_recipients.join(', ')}`);
     } catch (error) {
-        logger.error('Erro ao enviar notificação:', error);
+        logger.error('Error sending notification:', error);
     }
 }
 
@@ -208,6 +199,6 @@ async function recordAlert(
             [tenantId, ruleId, appName, value]
         );
     } catch (error) {
-        logger.error('Erro ao registrar histórico de alerta:', error);
+        logger.error('Error recording alert history:', error);
     }
 }

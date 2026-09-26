@@ -1,6 +1,6 @@
 # Hermes Observability - MVP Scope
 
-## ✅ MVP Features (v1.0)
+## MVP Features (v1.0)
 
 ### 1. Metrics Collection
 - **Node.js SDK** (`@hermes/agent`)
@@ -31,7 +31,7 @@
 - Alert history tracking
 - Enable/disable alerts
 
-## ❌ Out of Scope (Future Versions)
+## Out of Scope (Future Versions)
 
 ### v2.0 - Advanced Features
 - Distributed tracing (spans, traces)
@@ -53,7 +53,7 @@
 - SLA tracking
 - Custom plugin system
 
-## 🎯 MVP Goals
+## MVP Goals
 
 1. **Simple to integrate** - One-line SDK installation
 2. **Easy to deploy** - Docker Compose setup
@@ -61,7 +61,7 @@
 4. **Reliable storage** - TimescaleDB for time-series optimization
 5. **Basic alerting** - Email notifications for critical issues
 
-## 📊 Success Metrics
+## Success Metrics
 
 - SDK instrumentation time: < 5 minutes
 - Dashboard load time: < 2 seconds

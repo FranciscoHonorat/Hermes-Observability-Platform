@@ -1,6 +1,3 @@
-/**
- * Alert Types - Alert configuration and notifications
- */
 
 export enum AlertSeverity {
     INFO = 'info',
@@ -31,7 +28,7 @@ export interface AlertRule {
   condition: {
     operator: '>' | '<' | '>=' | '<=' | '==' | '!=';
     threshold: number;
-    duration?: number; // seconds
+    duration?: number;
   };
   severity: AlertSeverity;
   channels: AlertChannel[];
@@ -69,11 +66,6 @@ export interface AlertNotification {
   error?: string;
 }
 
-/**
- * Shape actually persisted in the `alert_rules` table and accepted by the
- * API's /api/v1/alerts routes. Distinct from AlertRule above, which models
- * a richer, not-yet-implemented multi-channel rule.
- */
 export type AlertRuleCondition = 'gt' | 'lt' | 'eq';
 
 export interface AlertRuleInput {

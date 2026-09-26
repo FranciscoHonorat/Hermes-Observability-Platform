@@ -4,7 +4,7 @@ Complete REST API reference for the Hermes Observability Platform.
 
 **Base URL:** `http://localhost:3000/api/v1`
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Authentication](#authentication)
 - [Metrics Endpoints](#metrics-endpoints)
@@ -55,7 +55,7 @@ curl -X POST http://localhost:3000/api/v1/alerts \
 
 ### Get Metrics
 
-Busca métricas com filtros opcionais.
+Fetch metrics with optional filters.
 
 **Endpoint:** `GET /api/v1/metrics`
 
@@ -63,12 +63,12 @@ Busca métricas com filtros opcionais.
 
 | Parameter    | Type   | Required | Description                          | Example                    |
 |-------------|--------|----------|--------------------------------------|----------------------------|
-| `appName`   | string | No       | Filtrar por nome da aplicação        | `my-service`              |
-| `metricName`| string | No       | Filtrar por nome da métrica          | `http_requests_total`     |
-| `from`      | number | No       | Timestamp inicial (milliseconds)     | `1708617600000`           |
-| `to`        | number | No       | Timestamp final (milliseconds)       | `1708704000000`           |
-| `limit`     | number | No       | Número máximo de resultados (default: 1000) | `100`        |
-| `offset`    | number | No       | Offset para paginação (default: 0)   | `50`                      |
+| `appName`   | string | No       | Filter by application name           | `my-service`              |
+| `metricName`| string | No       | Filter by metric name                | `http_requests_total`     |
+| `from`      | number | No       | Start timestamp (milliseconds)       | `1708617600000`           |
+| `to`        | number | No       | End timestamp (milliseconds)         | `1708704000000`           |
+| `limit`     | number | No       | Maximum number of results (default: 1000) | `100`        |
+| `offset`    | number | No       | Offset for pagination (default: 0)   | `50`                      |
 
 **Example Request:**
 
@@ -116,7 +116,7 @@ curl "http://localhost:3000/api/v1/metrics?appName=my-service&metricName=http_re
 
 ### Get Timeseries
 
-Busca dados agregados por tempo (para gráficos).
+Fetch time-aggregated data (for charts).
 
 **Endpoint:** `GET /api/v1/metrics/timeseries`
 
@@ -124,11 +124,11 @@ Busca dados agregados por tempo (para gráficos).
 
 | Parameter    | Type   | Required | Description                          | Example                    |
 |-------------|--------|----------|--------------------------------------|----------------------------|
-| `appName`   | string | **Yes**  | Nome da aplicação                    | `my-service`              |
-| `metricName`| string | **Yes**  | Nome da métrica                      | `http_request_duration_ms`|
-| `from`      | number | **Yes**  | Timestamp inicial (milliseconds)     | `1708617600000`           |
-| `to`        | number | **Yes**  | Timestamp final (milliseconds)       | `1708704000000`           |
-| `interval`  | string | No       | Intervalo de agregação (default: "1 minute") | `5 minutes`, `1 hour` |
+| `appName`   | string | **Yes**  | Application name                     | `my-service`              |
+| `metricName`| string | **Yes**  | Metric name                          | `http_request_duration_ms`|
+| `from`      | number | **Yes**  | Start timestamp (milliseconds)       | `1708617600000`           |
+| `to`        | number | **Yes**  | End timestamp (milliseconds)         | `1708704000000`           |
+| `interval`  | string | No       | Aggregation interval (default: "1 minute") | `5 minutes`, `1 hour` |
 
 **Supported Intervals:**
 - `1 second`, `5 seconds`, `10 seconds`, `30 seconds`
@@ -173,13 +173,13 @@ curl "http://localhost:3000/api/v1/metrics/timeseries?appName=my-service&metricN
 
 **Use Case:**
 
-Este endpoint é ideal para gráficos de linha/área mostrando evolução temporal das métricas.
+This endpoint is ideal for line/area charts showing the metrics' evolution over time.
 
 ---
 
 ### Get Metric Names
 
-Lista todas as métricas disponíveis.
+List all available metrics.
 
 **Endpoint:** `GET /api/v1/metrics/names`
 
@@ -187,7 +187,7 @@ Lista todas as métricas disponíveis.
 
 | Parameter  | Type   | Required | Description                   | Example      |
 |-----------|--------|----------|-------------------------------|--------------|
-| `appName` | string | No       | Filtrar por nome da aplicação | `my-service` |
+| `appName` | string | No       | Filter by application name | `my-service` |
 
 **Example Request:**
 
@@ -225,7 +225,7 @@ curl "http://localhost:3000/api/v1/metrics/names?appName=my-service"
 
 ### Get Latest Metrics
 
-Busca os últimos valores de cada métrica.
+Fetch the latest value of each metric.
 
 **Endpoint:** `GET /api/v1/metrics/latest`
 
@@ -233,7 +233,7 @@ Busca os últimos valores de cada métrica.
 
 | Parameter  | Type   | Required | Description                   | Example      |
 |-----------|--------|----------|-------------------------------|--------------|
-| `appName` | string | No       | Filtrar por nome da aplicação | `my-service` |
+| `appName` | string | No       | Filter by application name | `my-service` |
 
 **Example Request:**
 
@@ -269,7 +269,7 @@ curl "http://localhost:3000/api/v1/metrics/latest?appName=my-service"
 
 **Use Case:**
 
-Dashboard de overview mostrando valores atuais (current CPU, memory, request rate, etc).
+Overview dashboard showing current values (current CPU, memory, request rate, etc).
 
 ---
 
@@ -277,7 +277,7 @@ Dashboard de overview mostrando valores atuais (current CPU, memory, request rat
 
 ### List Alerts
 
-Lista todos os alertas configurados.
+List all configured alerts.
 
 **Endpoint:** `GET /api/v1/alerts`
 
@@ -320,7 +320,7 @@ curl "http://localhost:3000/api/v1/alerts?enabled=true"
 
 ### Get Alert Details
 
-Busca detalhes de um alerta específico.
+Fetch details of a specific alert.
 
 **Endpoint:** `GET /api/v1/alerts/:id`
 
@@ -358,7 +358,7 @@ curl "http://localhost:3000/api/v1/alerts/1"
 
 ### Create Alert
 
-Cria um novo alerta.
+Create a new alert.
 
 **Endpoint:** `POST /api/v1/alerts`
 
@@ -366,14 +366,14 @@ Cria um novo alerta.
 
 | Field              | Type     | Required | Description                          | Example                    |
 |-------------------|----------|----------|--------------------------------------|----------------------------|
-| `name`            | string   | **Yes**  | Nome do alerta                       | `"High CPU Usage"`        |
-| `description`     | string   | No       | Descrição do alerta                  | `"Alert when CPU > 80%"`  |
-| `metric_name`     | string   | **Yes**  | Nome da métrica a monitorar          | `"cpu_usage_percent"`     |
-| `condition`       | string   | **Yes**  | Condição: `gt`, `lt`, `eq`           | `"gt"`                    |
-| `threshold`       | number   | **Yes**  | Valor threshold                      | `80`                      |
-| `app_name`        | string   | No       | Nome da aplicação (null = todas)     | `"my-service"`            |
-| `email_recipients`| string[] | **Yes**  | Lista de emails para notificação     | `["ops@company.com"]`     |
-| `enabled`         | boolean  | No       | Status inicial (default: true)       | `true`                    |
+| `name`            | string   | **Yes**  | Alert name                           | `"High CPU Usage"`        |
+| `description`     | string   | No       | Alert description                    | `"Alert when CPU > 80%"`  |
+| `metric_name`     | string   | **Yes**  | Name of the metric to monitor        | `"cpu_usage_percent"`     |
+| `condition`       | string   | **Yes**  | Condition: `gt`, `lt`, `eq`          | `"gt"`                    |
+| `threshold`       | number   | **Yes**  | Threshold value                      | `80`                      |
+| `app_name`        | string   | No       | Application name (null = all)        | `"my-service"`            |
+| `email_recipients`| string[] | **Yes**  | List of emails to notify             | `["ops@company.com"]`     |
+| `enabled`         | boolean  | No       | Initial status (default: true)       | `true`                    |
 
 **Conditions:**
 - `gt` - Greater than
@@ -422,7 +422,7 @@ curl -X POST http://localhost:3000/api/v1/alerts \
 
 ### Update Alert
 
-Atualiza um alerta existente.
+Update an existing alert.
 
 **Endpoint:** `PUT /api/v1/alerts/:id`
 
@@ -434,7 +434,7 @@ Atualiza um alerta existente.
 
 **Request Body:**
 
-Mesmos campos do [Create Alert](#create-alert), mas todos opcionais. Apenas os campos enviados serão atualizados.
+Same fields as [Create Alert](#create-alert), but all optional. Only the fields sent will be updated.
 
 **Example Request:**
 
@@ -470,7 +470,7 @@ curl -X PUT http://localhost:3000/api/v1/alerts/1 \
 
 ### Delete Alert
 
-Remove um alerta.
+Delete an alert.
 
 **Endpoint:** `DELETE /api/v1/alerts/:id`
 
@@ -502,7 +502,7 @@ curl -X DELETE http://localhost:3000/api/v1/alerts/1 \
 
 ### Get Alert History
 
-Lista histórico de alertas disparados.
+List the history of triggered alerts.
 
 **Endpoint:** `GET /api/v1/alerts/:id/history`
 
@@ -516,7 +516,7 @@ Lista histórico de alertas disparados.
 
 | Parameter | Type   | Required | Description                     | Example |
 |----------|--------|----------|---------------------------------|---------|
-| `limit`  | number | No       | Limite de resultados (default: 100) | `50` |
+| `limit`  | number | No       | Result limit (default: 100) | `50` |
 
 **Example Request:**
 
@@ -896,7 +896,7 @@ curl -X PUT "http://localhost:3000/api/v1/recommendations/1" \
 
 ## Error Responses
 
-Todos os erros seguem o formato:
+All errors follow this format:
 
 ```json
 {
@@ -908,8 +908,8 @@ Todos os erros seguem o formato:
 
 | Code | Description                      | Example                                    |
 |------|----------------------------------|--------------------------------------------|
-| 400  | Bad Request - Parâmetros inválidos | Missing required parameter: appName      |
-| 404  | Not Found - Recurso não encontrado | Alert not found                          |
+| 400  | Bad Request - Invalid parameters | Missing required parameter: appName      |
+| 404  | Not Found - Resource not found | Alert not found                          |
 | 500  | Internal Server Error            | Database connection error                |
 
 **Example Error Response:**
@@ -943,7 +943,7 @@ A request over the limit gets `429` with `{ "error": "Too many requests" }`. Lim
 
 **Endpoint:** `GET /health`
 
-Verifica se a API está funcionando.
+Check whether the API is running.
 
 **Example Request:**
 
@@ -1091,7 +1091,7 @@ await createAlert({
 
 ## Postman Collection
 
-Importe esta collection no Postman para testar todos os endpoints:
+Import this collection into Postman to test all endpoints:
 
 ```json
 {
@@ -1131,12 +1131,12 @@ Importe esta collection no Postman para testar todos os endpoints:
 
 ## Support
 
-📚 **Complete documentation:** [README.md](README.md)  
-🐋 **Docker guide:** [DOCKER.md](DOCKER.md)  
-🚀 **Quick Start:** [QUICKSTART.md](QUICKSTART.md)  
-🐛 **Issues:** [GitHub Issues](https://github.com/FranciscoHonorat/hermes-observability/issues)
+**Complete documentation:** [README.md](README.md)  
+**Docker guide:** [DOCKER.md](DOCKER.md)  
+**Quick Start:** [QUICKSTART.md](QUICKSTART.md)  
+**Issues:** [GitHub Issues](https://github.com/FranciscoHonorat/hermes-observability/issues)
 
 ---
 
-**Última atualização:** February 22, 2026  
+**Last updated:** February 22, 2026  
 **API Version:** v1.0.0

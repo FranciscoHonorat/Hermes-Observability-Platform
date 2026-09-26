@@ -1,8 +1,3 @@
-// Package hermes is a Go client for the Hermes Observability Platform's
-// Collector. It talks the same HTTP+JSON wire protocol as @hermes/agent
-// (the Node SDK) — there is no Go SDK to "port"; this is a from-scratch
-// client built against that protocol, adapted to idiomatic Go where a
-// literal port of the Node API wouldn't make sense (see README.md).
 package hermes
 
 import (
@@ -14,11 +9,6 @@ import (
 	"time"
 )
 
-// Client buffers metrics, spans, and logs and flushes them to the Collector
-// on a timer. Unlike the Node SDK — which sends custom metrics immediately
-// but only batches auto-instrumentation/spans/logs — everything here goes
-// through the same buffer, flushed together. One design, easy to reason
-// about, and avoids one HTTP round-trip per metric call under real load.
 type Client struct {
 	collectorURL  string
 	serviceName   string
@@ -40,7 +30,6 @@ type Client struct {
 	startMu sync.Mutex
 }
 
-// Option configures a Client. See With* functions below.
 type Option func(*Client)
 
 func WithCollectorURL(url string) Option { return func(c *Client) { c.collectorURL = url } }
@@ -54,15 +43,6 @@ func WithFlushInterval(d time.Duration) Option {
 func WithLabels(labels map[string]any) Option { return func(c *Client) { c.labels = labels } }
 func WithHTTPClient(hc *http.Client) Option   { return func(c *Client) { c.httpClient = hc } }
 
-// NewClient builds a Client. Defaults come from HERMES_* environment
-// variables, mirroring @hermes/agent's packages/agent/src/config.ts:
-//
-//	HERMES_COLLECTOR_URL    (default "http://localhost:4000")
-//	HERMES_SERVICE_NAME     (default "unknown-service")
-//	HERMES_ENVIRONMENT      (default "development")
-//	HERMES_API_KEY          (default "")
-//	HERMES_COLLECT_INTERVAL (default 10000, milliseconds)
-//	HERMES_LABELS           (comma-separated key=value pairs)
 func NewClient(opts ...Option) *Client {
 	host, _ := os.Hostname()
 	if h := os.Getenv("HOSTNAME"); h != "" {
@@ -86,8 +66,6 @@ func NewClient(opts ...Option) *Client {
 	return c
 }
 
-// Start begins the periodic flush loop in a background goroutine. Safe to
-// call once; a second call is a no-op.
 func (c *Client) Start() {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
@@ -100,8 +78,6 @@ func (c *Client) Start() {
 	go c.flushLoop()
 }
 
-// Stop halts the flush loop and flushes whatever remains buffered before
-// returning. Safe to call on a Client that was never Start()ed.
 func (c *Client) Stop() {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
@@ -129,10 +105,6 @@ func (c *Client) flushLoop() {
 	}
 }
 
-// Flush sends whatever is currently buffered immediately. Also called
-// automatically on each tick and on Stop(). Errors from one signal type
-// (metrics/spans/logs) don't block the others from being sent; the first
-// error encountered is returned.
 func (c *Client) Flush() error {
 	c.mu.Lock()
 	metrics := c.metrics

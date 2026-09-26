@@ -8,8 +8,6 @@ import ErrorMessage from '../components/ErrorMessage';
 import { format, subHours, subDays } from 'date-fns';
 
 const Traces = () => {
-  // Pre-selects the service filter when arriving from a link that names one
-  // (e.g. ServiceGraph's node click, /traces?service=payment-service).
   const [searchParams] = useSearchParams();
   const [timeRange, setTimeRange] = useState('1h');
   const [selectedService, setSelectedService] = useState<string>(searchParams.get('service') || '');

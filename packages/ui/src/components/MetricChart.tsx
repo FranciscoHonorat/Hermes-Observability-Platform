@@ -34,12 +34,6 @@ interface MetricChartProps {
   title: string;
   unit?: string;
   color?: string;
-  // 'avg' (default) plots avg/max/min of each bucket's raw values —
-  // meaningful for a gauge (a snapshot state) or histogram (individual
-  // observations). A counter's raw value is just "1" per increment, so
-  // avg/max/min all flatten to ~1 regardless of traffic — 'count' plots
-  // how many events landed in each bucket instead, which is what "how much
-  // traffic" actually means for a counter.
   mode?: 'avg' | 'count';
 }
 
@@ -48,9 +42,6 @@ const MetricChart: React.FC<MetricChartProps> = ({ data, title, unit = '', color
     labels: data.map(d => format(new Date(d.bucket), 'HH:mm')),
     datasets: mode === 'count' ? [
       {
-        // Postgres COUNT(*) comes back as a string (bigint precision
-        // safety), not a number — Number() it explicitly rather than
-        // relying on Chart.js's implicit coercion.
         label: 'Count',
         data: data.map(d => Number(d.count ?? 0)),
         borderColor: color,

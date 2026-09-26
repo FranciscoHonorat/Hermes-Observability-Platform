@@ -11,9 +11,6 @@ const logger = new Logger('Server');
 export function createServer(): Application {
     const app = express();
 
-    // Behind nginx (docker/nginx.conf) in every deployment — trust its
-    // X-Forwarded-For so express-rate-limit keys by the real client IP
-    // instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
     app.set('trust proxy', 1);
 
     app.use(helmet());

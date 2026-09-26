@@ -2,31 +2,31 @@
 
 Complete observability system for Node.js applications, focusing on metrics, dashboards, and alerts.
 
-## 📚 Quick Links
+## Quick Links
 
-- **[🚀 Quick Start](#-getting-started)** - Get started in 5 minutes with Docker
-- **[📖 API Documentation](API.md)** - Complete REST API reference
-- **[🎯 Demo Application](examples/demo-app/)** - Practical SDK usage example
-- **[🐋 Docker Guide](DOCKER.md)** - Services, volumes, auth, and troubleshooting
-- **[⚡ Troubleshooting](#-troubleshooting)** - Common problems & solutions
+- **[Quick Start](#getting-started)** - Get started in 5 minutes with Docker
+- **[API Documentation](API.md)** - Complete REST API reference
+- **[Demo Application](examples/demo-app/)** - Practical SDK usage example
+- **[Docker Guide](DOCKER.md)** - Services, volumes, auth, and troubleshooting
+- **[Troubleshooting](#troubleshooting)** - Common problems & solutions
 
-## 🎯 MVP Scope
+## MVP Scope
 
-### ✅ Included in MVP
-- ✅ Collect basic Node.js application metrics
-- ✅ Simple dashboard visualization
-- ✅ Basic email alerts
-- ✅ Optimized time-series storage (TimescaleDB)
-- ✅ Real-time cache and streaming (Redis)
+### Included in MVP
+- Collect basic Node.js application metrics
+- Simple dashboard visualization
+- Basic email alerts
+- Optimized time-series storage (TimescaleDB)
+- Real-time cache and streaming (Redis)
 
-### ❌ Out of MVP (v2+)
-- ❌ Complex Distributed Tracing
-- ❌ Machine Learning / Anomaly Detection
-- ❌ Multi-tenant Architecture
-- ❌ Advanced Query Language
-- ❌ Custom Plugins System
+### Out of MVP (v2+)
+- Advanced Query Language
+- Custom Plugins System
+- SSO / fine-grained permissions matrix (beyond the current `admin`/`viewer` roles)
 
-## 🛠 Tech Stack
+> Distributed tracing, anomaly detection, and multi-tenancy with RBAC were originally scoped out of the MVP but have since been implemented — see [Features](#features) below and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md) / [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md).
+
+## Tech Stack
 
 ### Backend
 - **Node.js 18+** + **TypeScript** - Runtime and language
@@ -43,23 +43,27 @@ Complete observability system for Node.js applications, focusing on metrics, das
 - **Docker** + **Docker Compose** - Containerization
 - **npm workspaces** - Monorepo management
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 hermes-observability/
 ├── packages/
 │   ├── agent/          # SDK to instrument Node.js applications
-│   ├── collector/      # Receives metrics from applications
-│   ├── processor/      # Processes and persists metrics
-│   ├── api/           # REST API for querying metrics
-│   ├── ui/            # React Dashboard
-│   └── shared/        # Shared code (types, utils)
+│   ├── agent-go/       # Go client (metrics, tracing, logs)
+│   ├── collector/      # Receives metrics/traces/logs from applications
+│   ├── processor/      # Processes metrics, persists data, runs the alert engine
+│   ├── api/            # REST API for querying metrics, traces, logs, alerts
+│   ├── users/          # Self-service signup/login/logout/me (JWT auth)
+│   ├── admin/          # Tenant-admin-only user & API key management
+│   ├── intelligence/   # Python service: anomaly detection + recommendations
+│   ├── ui/             # React Dashboard
+│   └── shared/         # Shared code (types, utils)
 ├── docker/            # Dockerfiles and configurations
-├── docs/             # Documentation
+├── docs/             # Documentation (incl. docs/adr/ decision records)
 └── docker-compose.yml
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Quick Start (Docker - Recommended)
 
@@ -87,7 +91,7 @@ npm run docker:up
 
 #### Prerequisites
 - Node.js 18+
-- PostgreSQL 15+ com TimescaleDB
+- PostgreSQL 15+ with TimescaleDB
 - Redis 7+
 - npm 9+
 
@@ -132,7 +136,7 @@ cd packages/ui && npm run dev
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed guide.
 
-### 🐋 Docker Services
+### Docker Services
 
 When running with Docker, services will be available at:
 
@@ -140,31 +144,37 @@ When running with Docker, services will be available at:
 |-----------|------|-----------------------------------|
 | UI        | 3001 | http://localhost:3001             |
 | API       | 3000 | http://localhost:3000             |
+| Users (auth) | 4001 | http://localhost:4001/api/v1/auth |
+| Admin     | 4002 | http://localhost:4002/api/v1/admin |
 | Collector | 4000 | http://localhost:4000/metrics     |
 | Intelligence | — | internal only, no exposed port |
 | PostgreSQL| 5432 | postgres://localhost:5432/hermes  |
 | Redis     | 6379 | redis://localhost:6379            |
 
-📖 **Complete Docker documentation:** [DOCKER.md](DOCKER.md)
+**Complete Docker documentation:** [DOCKER.md](DOCKER.md)
 
-## 🏗 Architecture
+## Architecture
 
 ```
 ┌─────────────┐     HTTP      ┌───────────┐     Redis      ┌───────────┐     SQL     ┌──────────────┐
 │   Node.js   │  ──────────►  │ Collector │  ──────────►  │ Processor │  ────────►  │ PostgreSQL + │
-│ Application │   (metrics)   │  (HTTP)   │   (Stream)    │  (Worker) │             │  TimescaleDB │
-└─────────────┘               └───────────┘               └───────────┘             └──────────────┘
+│ Application │  (x-api-key)  │  (HTTP)   │   (Stream)    │  (Worker) │             │  TimescaleDB │
+└─────────────┘               └───────────┘               └───────────┘             └──────┬───────┘
                                     ▲                                                        │
-                                    │                                                        │
-                               [@hermes/agent]                                               │
-                                                                                             ▼
-┌─────────────┐     HTTP      ┌───────────┐                                         ┌──────────────┐
-│   Browser   │  ◄──────────  │    API    │  ◄──────────────────────────────────  │    Cache     │
-│     UI      │   (queries)   │  (REST)   │                                         │    (Redis)   │
-└─────────────┘               └───────────┘                                         └──────────────┘
+                                    │                                                        ▼
+                          [@hermes/agent(-go)]                                      ┌──────────────┐
+                                                                                     │ Intelligence │
+┌─────────────┐     HTTP      ┌───────────┐                                        │  (anomalies) │
+│   Browser   │  ◄──────────  │    API    │  ◄─────────────────────────────────┐  └──────────────┘
+│     UI      │  (JWT cookie) │  (REST)   │                                     │
+└──────┬──────┘               └───────────┘                                     │
+       │         ┌───────────┐        ┌───────────┐                            │
+       └────────►│   Users   │        │   Admin   │────────────────────────────┘
+                  │  (auth)   │        │ (keys/RBAC)│      Cache/keys (Redis)
+                  └───────────┘        └───────────┘
 ```
 
-## 📊 Performance
+## Performance
 
 Tested via Apache Bench and Vegeta against a local Docker Compose stack — full method and how to reproduce in [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
 
@@ -184,7 +194,7 @@ This load test also caught and fixed a real bug: the metrics table's primary key
 
 Not yet tested: sustained load beyond ~1 minute, the authenticated path under load, or a backlog large enough that it never catches up. Full numbers, caveats, and the `ab`/Vegeta commands to reproduce them: [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md).
 
-## 📊 Usage Examples
+## Usage Examples
 
 ### 1. Instrumenting Your Node.js Application
 
@@ -265,33 +275,33 @@ app.listen(3000, () => {
 
 ### 2. Custom Metrics Types
 
-**Counter** - Sempre cresce (requisições, erros, pedidos):
+**Counter** - Always increases (requests, errors, orders):
 ```javascript
 const requestCounter = agent.counter('api_calls_total', { 
   endpoint: '/users' 
 });
-requestCounter.inc();      // Incrementa 1
-requestCounter.inc(5);     // Incrementa 5
+requestCounter.inc();      // Increments by 1
+requestCounter.inc(5);     // Increments by 5
 ```
 
-**Gauge** - Valor que sobe/desce (memória, conexões ativas, temperatura):
+**Gauge** - Value that goes up/down (memory, active connections, temperature):
 ```javascript
 const activeUsers = agent.gauge('active_users_count', {
   region: 'us-east-1'
 });
-activeUsers.set(142);      // Define valor
+activeUsers.set(142);      // Sets value
 activeUsers.inc();         // +1
 activeUsers.dec(5);        // -5
 ```
 
-**Histogram** - Distribução de valores (latência, tamanho de resposta):
+**Histogram** - Distribution of values (latency, response size):
 ```javascript
 const responseTime = agent.histogram('response_time_ms', {
   service: 'database'
 });
-responseTime.observe(45);  // Registra 45ms
-responseTime.observe(123); // Registra 123ms
-// Automaticamente calcula p50, p95, p99, média
+responseTime.observe(45);  // Records 45ms
+responseTime.observe(123); // Records 123ms
+// Automatically computes p50, p95, p99, average
 ```
 
 ### 3. Querying Metrics via API
@@ -334,9 +344,13 @@ curl "http://localhost:3000/api/metrics/aggregated?appName=my-service&metricName
 ### 4. Configuring Alerts
 
 **Create Alert via API:**
+
+Mutating alert routes require an authenticated `admin` session — sign up/log in via `packages/users` first (the UI's Login/Signup pages handle this and set the auth cookie automatically). For scripted access, pass the JWT as a bearer token instead:
+
 ```bash
 curl -X POST http://localhost:3000/api/alerts \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "name": "High Error Rate",
     "appName": "my-service",
@@ -353,14 +367,14 @@ curl -X POST http://localhost:3000/api/alerts \
 - `less_than` - Below threshold
 - `equal` - Equal to threshold
 
-### 5. Try the Demo Application 🎯
+### 5. Try the Demo Application
 
 Want to see everything working? We have a **complete demonstration application** that shows:
-- ✅ E-commerce API instrumented with Hermes SDK
-- ✅ All metric types (Counter, Gauge, Histogram)
-- ✅ Business metrics (GMV, orders, users)
-- ✅ Automatic traffic simulator
-- ✅ Test endpoints (error, latency)
+- E-commerce API instrumented with Hermes SDK
+- All metric types (Counter, Gauge, Histogram)
+- Business metrics (GMV, orders, users)
+- Automatic traffic simulator
+- Test endpoints (error, latency)
 
 **Quick Start:**
 ```bash
@@ -379,75 +393,83 @@ curl -X POST http://localhost:3030/api/simulator/start
 # http://localhost:3001
 ```
 
-📖 **[See complete demo documentation →](examples/demo-app/README.md)**
+**[See complete demo documentation →](examples/demo-app/README.md)**
 
-## 📈 Features
+## Features
 
-### 📡 Metrics Collection
-- ✅ **Counter**: Incremental metrics (requests, errors)
-- ✅ **Gauge**: Instant values (memory, CPU, active users)
-- ✅ **Histogram**: Distributions (latency, sizes)
-- ✅ **Labels/Tags**: Customizable dimensions for filtering
-- ✅ **Auto-instrumentation**: Automatic Node.js metrics:
+### Metrics Collection
+- **Counter**: Incremental metrics (requests, errors)
+- **Gauge**: Instant values (memory, CPU, active users)
+- **Histogram**: Distributions (latency, sizes)
+- **Labels/Tags**: Customizable dimensions for filtering
+- **Auto-instrumentation**: Automatic Node.js metrics:
   - CPU usage
   - Memory (heap, RSS, external)
   - Event loop lag
   - Active handles
 
-### 🔗 Distributed Tracing
-- ✅ **Spans**: `startSpan()` for manual instrumentation, `httpTracingMiddleware()` for automatic per-request spans
-- ✅ **Cross-service propagation**: W3C `traceparent` header, via `instrumentAxios()` on outgoing calls
-- ✅ **Waterfall view**: parent/child span hierarchy with proportional timing in the UI
-- ✅ **API**: `GET /api/v1/traces` (list) and `GET /api/v1/traces/:traceId` (detail) — see [API.md](API.md#traces-endpoints)
+### Distributed Tracing
+- **Spans**: `startSpan()` for manual instrumentation, `httpTracingMiddleware()` for automatic per-request spans
+- **Cross-service propagation**: W3C `traceparent` header, via `instrumentAxios()` on outgoing calls
+- **Waterfall view**: parent/child span hierarchy with proportional timing in the UI
+- **API**: `GET /api/v1/traces` (list) and `GET /api/v1/traces/:traceId` (detail) — see [API.md](API.md#traces-endpoints)
 
-### 📝 Log Aggregation
-- ✅ **Explicit API**: `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` — not a `console.*` monkeypatch
-- ✅ **Trace correlation**: a log written inside an active span auto-carries its `traceId`/`spanId`, no extra API needed
-- ✅ **Substring search**: `pg_trgm`-indexed, so `ILIKE '%text%'` against stack traces/error codes stays fast
-- ✅ **API**: `GET /api/v1/logs?appName=&level=&search=&traceId=` — see [API.md](API.md#logs-endpoints)
+### Log Aggregation
+- **Explicit API**: `log()`/`debug()`/`info()`/`warn()`/`error()`/`captureException()` — not a `console.*` monkeypatch
+- **Trace correlation**: a log written inside an active span auto-carries its `traceId`/`spanId`, no extra API needed
+- **Substring search**: `pg_trgm`-indexed, so `ILIKE '%text%'` against stack traces/error codes stays fast
+- **API**: `GET /api/v1/logs?appName=&level=&search=&traceId=` — see [API.md](API.md#logs-endpoints)
 
-### 🗺️ Service Dependency Map
-- ✅ **Zero extra instrumentation**: derived entirely from existing `spans` data — a cross-service parent/child span pair *is* a dependency edge
-- ✅ **Layered graph view**: services laid out by call depth, node size/color by traffic and error rate
-- ✅ **Cross-linked**: click a service to jump to its filtered trace list
-- ✅ **API**: `GET /api/v1/service-map?from=&to=` — see [API.md](API.md#service-map-endpoint)
+### Service Dependency Map
+- **Zero extra instrumentation**: derived entirely from existing `spans` data — a cross-service parent/child span pair *is* a dependency edge
+- **Layered graph view**: services laid out by call depth, node size/color by traffic and error rate
+- **Cross-linked**: click a service to jump to its filtered trace list
+- **API**: `GET /api/v1/service-map?from=&to=` — see [API.md](API.md#service-map-endpoint)
 
-### 📊 Dashboard (UI)
-- ✅ Real-time visualization with Chart.js
-- ✅ Time range selection (15min, 1h, 6h, 24h, 7d, 30d)
-- ✅ Multiple chart types (line, area, bar)
-- ✅ Filters by application and metrics
-- ✅ Responsive interface with TailwindCSS
+### Dashboard (UI)
+- Real-time visualization with Chart.js
+- Time range selection (15min, 1h, 6h, 24h, 7d, 30d)
+- Multiple chart types (line, area, bar)
+- Filters by application and metrics
+- Responsive interface with TailwindCSS
 
-### 🧠 Intelligence (Anomaly Detection + Performance Recommendations)
-- ✅ **Anomaly detection**: `IsolationForest` (scikit-learn) per `(app, metric)` series, fit on a baseline window and scored against a separate recent window — see [`packages/intelligence`](packages/intelligence/README.md) and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)
-- ✅ **Performance recommendations**: rule-based (not ML), derived from span latency/error-rate regressions and resource anomalies — deliberately explainable
-- ✅ **API**: `GET /api/v1/anomalies`, `GET /api/v1/recommendations`, `PUT /api/v1/recommendations/:id` — see [API.md](API.md#anomalies-endpoints)
-- ✅ **UI**: new Insights page
+### Intelligence (Anomaly Detection + Performance Recommendations)
+- **Anomaly detection**: `IsolationForest` (scikit-learn) per `(app, metric)` series, fit on a baseline window and scored against a separate recent window — see [`packages/intelligence`](packages/intelligence/README.md) and [ADR 0001](docs/adr/0001-anomaly-detection-and-performance-recommendations.md)
+- **Performance recommendations**: rule-based (not ML), derived from span latency/error-rate regressions and resource anomalies — deliberately explainable
+- **API**: `GET /api/v1/anomalies`, `GET /api/v1/recommendations`, `PUT /api/v1/recommendations/:id` — see [API.md](API.md#anomalies-endpoints)
+- **UI**: new Insights page
 
-### 🚨 Alerts
-- ✅ Threshold-based alerts
-- ✅ Email notifications (SMTP)
-- ✅ Configurable time window
-- ✅ Triggered alert history
-- ✅ Automatic evaluation every 1 minute
+### Alerts
+- Threshold-based alerts
+- Email notifications (SMTP)
+- Configurable time window
+- Triggered alert history
+- Automatic evaluation every 1 minute
 
-### 💾 Storage & Performance
-- ✅ **TimescaleDB**: Optimized for time-series
+### Authentication & Multi-tenancy
+- **Accounts**: self-service signup/login/logout via [`packages/users`](packages/users) — JWT issued as an httpOnly cookie, so it's never exposed to page JavaScript
+- **Roles**: `admin` (mutate alerts, manage users and API keys) and `viewer` (read-only)
+- **Tenant isolation**: every table carries `tenant_id`; every API read/write is scoped to the caller's tenant
+- **API key management**: [`packages/admin`](packages/admin) issues/revokes per-tenant Collector API keys (`x-api-key`), cached in Redis for fast lookup on the ingestion hot path
+- **Dev-mode default**: unauthenticated Collector requests are attributed to a fixed `default` tenant, so `docker compose up` still works with zero configuration
+- See [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md) for the full design rationale
+
+### Storage & Performance
+- **TimescaleDB**: Optimized for time-series
   - Hypertables with automatic chunking
   - Continuous aggregates for fast queries
   - Retention policy (30 days by default)
-- ✅ **Redis Streams**: Async buffer between collector and processor
-- ✅ **Batch Processing**: Batch processing for efficiency
+- **Redis Streams**: Async buffer between collector and processor
+- **Batch Processing**: Batch processing for efficiency
 
-### 🔧 Developer Experience
-- ✅ TypeScript SDK with complete type safety
-- ✅ Zero-config defaults (works out-of-the-box)
-- ✅ Docker Compose for local development
-- ✅ Hot-reload in development
-- ✅ Structured logs
+### Developer Experience
+- TypeScript SDK with complete type safety
+- Zero-config defaults (works out-of-the-box)
+- Docker Compose for local development
+- Hot-reload in development
+- Structured logs
 
-## 🧪 Development
+## Development
 
 ### Building the Project
 
@@ -458,7 +480,7 @@ npm install
 # Build all packages (monorepo)
 npm run build
 
-# Build específico de um package
+# Build a specific package
 npm run build --workspace=packages/agent
 ```
 
@@ -468,10 +490,10 @@ npm run build --workspace=packages/agent
 # Run all tests
 npm test
 
-# Test específico
+# Run a specific package's tests
 npm test --workspace=packages/processor
 
-# Test com coverage
+# Run tests with coverage
 npm run test:coverage
 ```
 
@@ -501,7 +523,7 @@ npm run dev --workspace=packages/api
 npm run dev --workspace=packages/ui
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Collector not receiving metrics
 
@@ -585,26 +607,26 @@ docker-compose up --no-start
 docker-compose logs
 ```
 
-## 📚 Documentation
+## Documentation
 
-### 📖 User Guides
+### User Guides
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick installation guide (Docker + Manual)
 - **[API.md](API.md)** - Complete REST API reference with examples
 - **[DOCKER.md](DOCKER.md)** - Complete Docker guide
 
-### 🎯 Examples
+### Examples
 - **[Demo Application](examples/demo-app/)** - E-commerce instrumented with Hermes SDK
   - All metric types
   - Traffic simulator
   - Business metrics (GMV, orders, users)
 
-### 📝 Technical Docs
+### Technical Docs
 - **[MVP.md](docs/MVP.md)** - MVP scope and decisions
 - **[BUILD_STATUS.md](BUILD_STATUS.md)** - Build status and fixes
 - **[LOAD_TESTING.md](docs/LOAD_TESTING.md)** - Throughput/latency test roadmap and how to reproduce the numbers before they go in this README
 - **API Reference** - Available at `/api/docs` when running (in development)
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please:
 
@@ -622,12 +644,12 @@ Contributions are welcome! Please:
 - Update documentation when necessary
 - Commits should follow [Conventional Commits](https://www.conventionalcommits.org/)
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Developed with ❤️ by Francisco Honorat**
+**Developed by Francisco Honorat**
 
-📫 Questions or suggestions? Open an [issue](https://github.com/FranciscoHonorat/hermes-observability/issues)!
+Questions or suggestions? Open an [issue](https://github.com/FranciscoHonorat/hermes-observability/issues)!

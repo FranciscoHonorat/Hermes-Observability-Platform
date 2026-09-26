@@ -12,13 +12,11 @@ async function main() {
             port: config.port
         });
 
-        // Testar conexão com o banco de dados
         const dbConnected = await testConnection();
         if (!dbConnected) {
             throw new Error('Failed to connect to database');
         }
 
-        // Criar e iniciar servidor
         const app = createServer();
         
         const server = app.listen(config.port, () => {
@@ -28,7 +26,6 @@ async function main() {
             logger.info(`Documentation: http://localhost:${config.port}/`);
         });
 
-        // Tratamento de erros do servidor
         server.on('error', (error: any) => {
             if (error.code === 'EADDRINUSE') {
                 logger.error(`Port ${config.port} is already in use`);
@@ -44,12 +41,10 @@ async function main() {
     }
 }
 
-// Graceful shutdown
 async function shutdown(signal: string) {
     logger.info(`${signal} received, shutting down gracefully...`);
     
     try {
-        // Fechar pool do banco
         await closePool();
         
         logger.info('Shutdown complete');
@@ -63,7 +58,6 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception:', error);
     shutdown('uncaughtException');
@@ -74,5 +68,4 @@ process.on('unhandledRejection', (reason) => {
     shutdown('unhandledRejection');
 });
 
-// Iniciar aplicação
 main();

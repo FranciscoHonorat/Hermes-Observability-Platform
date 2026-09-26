@@ -1,6 +1,3 @@
-"""Periodic sweep loop — mirrors packages/processor/src/alertEngine.ts's
-startAlertEngine(): while True: try sweep, sleep(interval); except: log,
-sleep(5) and retry."""
 import logging
 import time
 

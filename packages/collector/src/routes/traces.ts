@@ -6,12 +6,10 @@ import { config } from '../config';
 const router = Router();
 const logger = new Logger('TracesRoute');
 
-// POST /api/v1/traces - Receber spans
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const batch: SpanBatch = req.body;
 
-        // Validar formato do batch
         if (!batch.spans || !Array.isArray(batch.spans)) {
             return res.status(400).json({
                 error: 'Invalid batch format',
@@ -19,7 +17,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             });
         }
 
-        // Validar tamanho do batch
         if (batch.spans.length > config.maxBatchSize) {
             return res.status(400).json({
                 error: 'Batch too large',
@@ -34,19 +31,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         let rejected = 0;
         const errors: string[] = [];
 
-        // Processar cada span
         for (let i = 0; i < batch.spans.length; i++) {
             const span = batch.spans[i];
 
             try {
-                // Validar span
                 validateSpan(span);
 
-                // tenantId is always overwritten here, never trusted from
-                // the client. See docs/adr/0002-*.md.
                 span.tenantId = req.tenantId;
 
-                // Adicionar ao Redis Stream
                 await addSpanToStream(span);
                 accepted++;
 
@@ -66,7 +58,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
         logger.info(`Batch processed: ${accepted} accepted, ${rejected} rejected`);
 
-        // Retornar resultado
         const response: any = {
             accepted,
             rejected,
@@ -89,7 +80,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-// GET /api/v1/traces/health - Health check específico de traces
 router.get('/health', (req: Request, res: Response) => {
     res.json({
         status: 'ok',

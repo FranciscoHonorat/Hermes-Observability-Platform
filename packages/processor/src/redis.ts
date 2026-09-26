@@ -14,28 +14,19 @@ function createConnection(label: string): Redis {
         }
     });
 
-    client.on('connect', () => logger.info(`Redis conectado (${label})`));
+    client.on('connect', () => logger.info(`Redis connected (${label})`));
     client.on('error', (err) => logger.error(`Redis error (${label})`, err));
 
     return client;
 }
 
-// Conexão principal: usada para XACK/comandos pontuais em ambos os
-// consumers, e para o loop de métricas (que faz XREADGROUP...BLOCK nela).
 export const redis = createConnection('main');
 
-// Conexão dedicada para o loop de spans. XREADGROUP...BLOCK ocupa a conexão
-// inteira até retornar — dois loops de blocking-read concorrentes numa
-// única conexão ficam se atravancando (um só desbloqueia quando o BLOCK do
-// outro estoura), inflando a latência de ambos em até blockTimeout a cada
-// ciclo. Precisa de uma conexão própria por loop bloqueante.
 export const tracesRedis = createConnection('traces');
 
-// Conexão dedicada para o loop de logs — mesmo motivo do tracesRedis acima.
 export const logsRedis = createConnection('logs');
 
-// Função para criar um grupo de consumidores num stream específico
-export async function criarGrupoConsumidor(
+export async function createConsumerGroup(
     streamKey: string = REDIS_METRICS_STREAM,
     groupName: string = config.processor.consumerGroup
 ) {
@@ -47,10 +38,10 @@ export async function criarGrupoConsumidor(
             '0',
             'MKSTREAM'
         );
-        logger.info('Grupo de consumidores criado', { stream: streamKey, group: groupName });
+        logger.info('Consumer group created', { stream: streamKey, group: groupName });
     } catch (error: any) {
         if (error.message.includes('BUSYGROUP')) {
-            logger.info('Grupo de consumidores já existe', { stream: streamKey, group: groupName });
+            logger.info('Consumer group already exists', { stream: streamKey, group: groupName });
         } else {
             throw error;
         }

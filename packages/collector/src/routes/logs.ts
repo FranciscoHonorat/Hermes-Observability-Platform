@@ -6,12 +6,10 @@ import { config } from '../config';
 const router = Router();
 const logger = new Logger('LogsRoute');
 
-// POST /api/v1/logs - Receber logs
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const batch: LogBatch = req.body;
 
-        // Validar formato do batch
         if (!batch.logs || !Array.isArray(batch.logs)) {
             return res.status(400).json({
                 error: 'Invalid batch format',
@@ -19,7 +17,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
             });
         }
 
-        // Validar tamanho do batch
         if (batch.logs.length > config.maxBatchSize) {
             return res.status(400).json({
                 error: 'Batch too large',
@@ -34,19 +31,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         let rejected = 0;
         const errors: string[] = [];
 
-        // Processar cada log
         for (let i = 0; i < batch.logs.length; i++) {
             const entry = batch.logs[i];
 
             try {
-                // Validar log
                 validateLogEntry(entry);
 
-                // tenantId is always overwritten here, never trusted from
-                // the client. See docs/adr/0002-*.md.
                 entry.tenantId = req.tenantId;
 
-                // Adicionar ao Redis Stream
                 await addLogToStream(entry);
                 accepted++;
 
@@ -65,7 +57,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
         logger.info(`Batch processed: ${accepted} accepted, ${rejected} rejected`);
 
-        // Retornar resultado
         const response: any = {
             accepted,
             rejected,
@@ -88,7 +79,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-// GET /api/v1/logs/health - Health check específico de logs
 router.get('/health', (req: Request, res: Response) => {
     res.json({
         status: 'ok',

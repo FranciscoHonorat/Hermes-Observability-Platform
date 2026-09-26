@@ -1,6 +1,3 @@
-/**
- * Types index - Re-export all type definitions
- */
 
 export * from './metricTypes';
 export * from './alertTypes';
