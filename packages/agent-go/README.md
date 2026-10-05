@@ -53,7 +53,7 @@ Same names as `@hermes/agent` (`packages/agent/src/config.ts`), so a Go and Node
 | `HERMES_COLLECTOR_URL` | `http://localhost:4000` | |
 | `HERMES_SERVICE_NAME` | `unknown-service` | becomes `app_name` everywhere in the UI/API |
 | `HERMES_ENVIRONMENT` | `development` | |
-| `HERMES_API_KEY` | *(empty)* | required if the Collector's `COLLECTOR_API_KEYS` is set |
+| `HERMES_API_KEY` | *(empty)* | collector API key (create one on the UI's Admin page); required in production |
 | `HERMES_COLLECT_INTERVAL` | `10000` | flush interval, **milliseconds** |
 | `HERMES_LABELS` | *(empty)* | comma-separated `key=value` pairs, attached to every metric |
 

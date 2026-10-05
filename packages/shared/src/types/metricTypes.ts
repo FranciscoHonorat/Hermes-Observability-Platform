@@ -41,14 +41,3 @@ export interface MetricBatch {
     batchId?: string;
     timestamp: number;
 }
-
-export interface AggregatedMetric extends Metric {
-      count: number;
-  sum: number;
-  min: number;
-  max: number;
-  avg: number;
-  p50?: number;
-  p95?: number;
-  p99?: number;
-}

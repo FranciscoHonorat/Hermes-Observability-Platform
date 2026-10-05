@@ -1,14 +1,13 @@
 {
   "name": "@hermes/shared",
   "version": "1.0.0",
-  "description": "Shared types and utilities for Hermes Observability",
+  "description": "Types and logger for the Hermes Node agent",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rimraf dist",
-    "test": "vitest run"
+    "clean": "rimraf dist"
   },
   "keywords": [
     "observability",
@@ -17,18 +16,9 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3"
-  },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/bcryptjs": "^2.4.6",
-    "express": "^4.18.2",
     "typescript": "^5.3.0",
-    "rimraf": "^5.0.5",
-    "vitest": "^1.6.0"
+    "rimraf": "^5.0.5"
   }
 }

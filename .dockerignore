@@ -45,6 +45,9 @@ docs/
 *.md
 !README.md
 
+# Load test output (large, local only)
+results/
+
 # Temp
 tmp/
 temp/

@@ -29,10 +29,11 @@ Complete observability system for Node.js applications, focusing on metrics, das
 ## Tech Stack
 
 ### Backend
-- **Node.js 18+** + **TypeScript** - Runtime and language
+- **Go 1.26** - Collector, processor and API (`packages/backend`, one module, three binaries)
 - **PostgreSQL** + **TimescaleDB** - Time-series database
-- **Redis** - Cache and message streaming
-- **Express** - REST API
+- **Redis** - Message streaming (collector → processor) and API key cache
+- **Python** - Anomaly detection and recommendations (`packages/intelligence`)
+- **TypeScript** - Node.js agent SDK (`packages/agent`)
 
 ### Frontend
 - **React** - User interface
@@ -50,14 +51,12 @@ hermes-observability/
 ├── packages/
 │   ├── agent/          # SDK to instrument Node.js applications
 │   ├── agent-go/       # Go client (metrics, tracing, logs)
-│   ├── collector/      # Receives metrics/traces/logs from applications
-│   ├── processor/      # Processes metrics, persists data, runs the alert engine
-│   ├── api/            # REST API for querying metrics, traces, logs, alerts
-│   ├── users/          # Self-service signup/login/logout/me (JWT auth)
-│   ├── admin/          # Tenant-admin-only user & API key management
+│   ├── backend/        # Go: collector, processor and api (see its README)
+│   │   ├── cmd/        #   one binary per service
+│   │   └── internal/   #   shared model, auth, HTTP plumbing + per-service code
 │   ├── intelligence/   # Python service: anomaly detection + recommendations
 │   ├── ui/             # React Dashboard
-│   └── shared/         # Shared code (types, utils)
+│   └── shared/         # Types and logger used by the Node agent
 ├── docker/            # Dockerfiles and configurations
 ├── docs/             # Documentation (incl. docs/adr/ decision records)
 └── docker-compose.yml
@@ -121,14 +120,10 @@ npm run build
 
 5. **Start services** (in separate terminals)
 ```bash
-# Terminal 1 - Collector
-cd packages/collector && npm run dev
-
-# Terminal 2 - Processor
-cd packages/processor && npm run dev
-
-# Terminal 3 - API
-cd packages/api && npm run dev
+# Terminals 1-3 - Go services (Go 1.26+)
+cd packages/backend && go run ./cmd/collector
+cd packages/backend && go run ./cmd/processor
+cd packages/backend && go run ./cmd/api
 
 # Terminal 4 - UI
 cd packages/ui && npm run dev
@@ -143,10 +138,9 @@ When running with Docker, services will be available at:
 | Service    | Port | URL/Connection                    |
 |-----------|------|-----------------------------------|
 | UI        | 3001 | http://localhost:3001             |
-| API       | 3000 | http://localhost:3000             |
-| Users (auth) | 4001 | http://localhost:4001/api/v1/auth |
-| Admin     | 4002 | http://localhost:4002/api/v1/admin |
-| Collector | 4000 | http://localhost:4000/metrics     |
+| API (data, auth, admin) | 3000 | http://localhost:3000/api/v1 |
+| Collector | 4000 | http://localhost:4000/api/v1/{metrics,traces,logs} |
+| Processor health | 4010 | http://localhost:4010/healthz (stream backlog) |
 | Intelligence | — | internal only, no exposed port |
 | PostgreSQL| 5432 | postgres://localhost:5432/hermes  |
 | Redis     | 6379 | redis://localhost:6379            |
@@ -156,23 +150,30 @@ When running with Docker, services will be available at:
 ## Architecture
 
 ```
-┌─────────────┐     HTTP      ┌───────────┐     Redis      ┌───────────┐     SQL     ┌──────────────┐
-│   Node.js   │  ──────────►  │ Collector │  ──────────►  │ Processor │  ────────►  │ PostgreSQL + │
-│ Application │  (x-api-key)  │  (HTTP)   │   (Stream)    │  (Worker) │             │  TimescaleDB │
-└─────────────┘               └───────────┘               └───────────┘             └──────┬───────┘
-                                    ▲                                                        │
-                                    │                                                        ▼
-                          [@hermes/agent(-go)]                                      ┌──────────────┐
-                                                                                     │ Intelligence │
-┌─────────────┐     HTTP      ┌───────────┐                                        │  (anomalies) │
-│   Browser   │  ◄──────────  │    API    │  ◄─────────────────────────────────┐  └──────────────┘
-│     UI      │  (JWT cookie) │  (REST)   │                                     │
-└──────┬──────┘               └───────────┘                                     │
-       │         ┌───────────┐        ┌───────────┐                            │
-       └────────►│   Users   │        │   Admin   │────────────────────────────┘
-                  │  (auth)   │        │ (keys/RBAC)│      Cache/keys (Redis)
-                  └───────────┘        └───────────┘
+ Instrumented app            Go services (packages/backend)
+ [@hermes/agent,
+  agent-go, any HTTP]
+        │ x-api-key
+        ▼
+ ┌───────────┐  Redis Streams  ┌───────────┐   batched SQL   ┌──────────────┐
+ │ Collector │ ──────────────► │ Processor │ ──────────────► │ PostgreSQL + │
+ │  :4000    │                 │  :4010    │   alert engine  │  TimescaleDB │
+ └─────┬─────┘                 └───────────┘                 └──────┬───────┘
+       │ HGET api key                                                │ ▲
+       ▼                                                             │ │ anomalies,
+ ┌───────────┐  API key cache  ┌───────────────────────┐   SQL       │ │ recommendations
+ │   Redis   │ ◄────────────── │          API          │ ◄───────────┘ │
+ └───────────┘                 │ data · auth · admin   │         ┌──────┴───────┐
+                               │  :3000                │         │ Intelligence │
+                               └───────────▲───────────┘         │   (Python)   │
+                                           │ JWT cookie          └──────────────┘
+                                 ┌─────────┴─────────┐
+                                 │ Browser UI (nginx │
+                                 │ :3001 → /api)     │
+                                 └───────────────────┘
 ```
+
+Collector, processor and API are Go binaries built from `packages/backend`. They share the ingestion model, auth and HTTP middleware. See [ADR 0003](docs/adr/0003-go-backend-consolidation.md).
 
 ## Performance
 
@@ -184,11 +185,12 @@ Tested via Apache Bench and Vegeta against a local Docker Compose stack — full
 | API P99 latency | 2.4 ms | Vegeta, 50 req/s sustained 30s |
 | Ingestion (Collector HTTP) | ~1,755 metrics/s | `POST /api/v1/metrics`, 0 rejected |
 | Ingestion (Redis Stream direct) | ~10,000 metrics/s | isolates the Collector's HTTP overhead |
-| **End-to-end sustained throughput** | **~282 metrics/s** | Processor drain rate — the real system ceiling |
+| Processor drain rate (former Node processor) | ~282 metrics/s | 60,000-metric backlog drained in ~228 s, full stack |
+| **Processor drain rate (Go, batched)** | **~6,100 metrics/s** | 60,000-metric backlog drained in ~9.8 s; Postgres + Redis only, not yet re-measured on the full stack |
 | Timeseries query (6h, 1min buckets) | 567 req/s, verified against real TimescaleDB data | `GET /api/v1/metrics/timeseries` |
 | Memory under load | +14–35 MB per service, no growth 30s after | `docker stats` |
 
-**The Processor is the bottleneck**, not the Collector or Redis: it drains the stream sequentially (10 messages per read, then a synchronous validate → persist → `XACK` per message). Verified the system holds up under sustained overload too: a 60s burst at ~3.5x the Processor's drain rate built a 60,000-message backlog with zero data loss, fully draining in ~3.8 minutes — at-least-once delivery held throughout, though there's currently no queue-depth metric or alert to surface that lag to an operator.
+**The Node processor was the bottleneck**: it drained the stream one message at a time (validate → INSERT → UPSERT application → `XACK` per message). It was replaced by a Go processor that persists each batch of up to 500 messages with a single `INSERT ... SELECT FROM unnest(...)`, one applications upsert and one `XACK`. The old system also held up under sustained overload: a 60s burst at ~3.5x its drain rate built a 60,000-message backlog with zero data loss. The Go processor exposes that backlog per stream at `GET :4010/healthz`. See [packages/backend/README.md](packages/backend/README.md).
 
 This load test also caught and fixed a real bug: the metrics table's primary key used a millisecond-resolution client timestamp, so two distinct events for the same app+metric landing in the same millisecond silently overwrote each other (`ON CONFLICT DO UPDATE`) — reproduced a 72% silent data loss rate under realistic concurrency, fixed by keying on the Redis Stream message ID instead (verified 0% loss after). See `results/RESULTS.md` for the full repro/fix, and `BUILD_STATUS.md` for migration notes if you're running an existing deployment.
 
@@ -345,10 +347,10 @@ curl "http://localhost:3000/api/metrics/aggregated?appName=my-service&metricName
 
 **Create Alert via API:**
 
-Mutating alert routes require an authenticated `admin` session — sign up/log in via `packages/users` first (the UI's Login/Signup pages handle this and set the auth cookie automatically). For scripted access, pass the JWT as a bearer token instead:
+Mutating alert routes require an authenticated `admin` session. Sign up or log in first: the UI's Login/Signup pages call `/api/v1/auth/*` and set the session cookie automatically. For scripted access, pass the JWT as a bearer token instead:
 
 ```bash
-curl -X POST http://localhost:3000/api/alerts \
+curl -X POST http://localhost:3000/api/v1/alerts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $JWT" \
   -d '{
@@ -447,10 +449,10 @@ curl -X POST http://localhost:3030/api/simulator/start
 - Automatic evaluation every 1 minute
 
 ### Authentication & Multi-tenancy
-- **Accounts**: self-service signup/login/logout via [`packages/users`](packages/users) — JWT issued as an httpOnly cookie, so it's never exposed to page JavaScript
+- **Accounts**: self-service signup/login/logout at `/api/v1/auth/*`. The JWT is issued as an httpOnly cookie, so page JavaScript never sees it
 - **Roles**: `admin` (mutate alerts, manage users and API keys) and `viewer` (read-only)
 - **Tenant isolation**: every table carries `tenant_id`; every API read/write is scoped to the caller's tenant
-- **API key management**: [`packages/admin`](packages/admin) issues/revokes per-tenant Collector API keys (`x-api-key`), cached in Redis for fast lookup on the ingestion hot path
+- **API key management**: `/api/v1/admin/api-keys` issues and revokes per-tenant Collector API keys (`x-api-key`). Keys are cached in Redis for fast lookup on the ingestion hot path, and the cache is rebuilt from Postgres whenever the API starts
 - **Dev-mode default**: unauthenticated Collector requests are attributed to a fixed `default` tenant, so `docker compose up` still works with zero configuration
 - See [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md) for the full design rationale
 
@@ -460,10 +462,10 @@ curl -X POST http://localhost:3030/api/simulator/start
   - Continuous aggregates for fast queries
   - Retention policy (30 days by default)
 - **Redis Streams**: Async buffer between collector and processor
-- **Batch Processing**: Batch processing for efficiency
+- **Batch Processing**: the collector writes each request in one Redis pipeline; the processor persists up to 500 messages per `INSERT`
 
 ### Developer Experience
-- TypeScript SDK with complete type safety
+- TypeScript SDK with complete type safety (plus a Go client in `packages/agent-go`)
 - Zero-config defaults (works out-of-the-box)
 - Docker Compose for local development
 - Hot-reload in development
@@ -477,8 +479,11 @@ curl -X POST http://localhost:3030/api/simulator/start
 # Install all dependencies
 npm install
 
-# Build all packages (monorepo)
+# Build the TypeScript packages (shared, agent; ui builds with Vite)
 npm run build
+
+# Build the Go services
+go -C packages/backend build ./...
 
 # Build a specific package
 npm run build --workspace=packages/agent
@@ -487,27 +492,31 @@ npm run build --workspace=packages/agent
 ### Running Tests
 
 ```bash
-# Run all tests
+# Go services (unit tests; integration tests also run when TEST_DATABASE_URL
+# and TEST_REDIS_ADDR are set, see packages/backend/README.md)
 npm test
 
-# Run a specific package's tests
-npm test --workspace=packages/processor
-
-# Run tests with coverage
+# With coverage
 npm run test:coverage
+
+# Check a running stack end to end
+npm run test:system
 ```
 
 ### Code Quality
 
 ```bash
-# Lint all packages
+# Lint the TypeScript packages (agent, shared)
 npm run lint
 
 # Format code
 npm run format
 
-# Type checking
-npm run type-check
+# Type-check and build the TypeScript packages
+npm run build
+
+# Go
+go -C packages/backend vet ./...
 ```
 
 ### Development Workflow
@@ -517,9 +526,9 @@ npm run type-check
 npm run dev
 
 # Or start services individually:
-npm run dev --workspace=packages/collector
-npm run dev --workspace=packages/processor
-npm run dev --workspace=packages/api
+go -C packages/backend run ./cmd/collector
+go -C packages/backend run ./cmd/processor
+go -C packages/backend run ./cmd/api
 npm run dev --workspace=packages/ui
 ```
 
@@ -538,17 +547,12 @@ curl http://localhost:4000/health
 docker logs hermes-collector  # or:
 npm run docker logs collector
 
-# Test manually sending metric
-curl -X POST http://localhost:4000/metrics \
+# Test manually sending a metric (add -H "x-api-key: ..." in production)
+curl -X POST http://localhost:4000/api/v1/metrics \
   -H "Content-Type: application/json" \
-  -d '{
-    "appName": "test",
-    "metricName": "test_metric",
-    "metricType": "counter",
-    "value": 1,
-    "labels": {}
-  }'
+  -d "{\"metrics\":[{\"name\":\"test_metric\",\"type\":\"counter\",\"value\":1,\"timestamp\":$(date +%s000),\"metadata\":{\"service\":\"test\"}}]}"
 ```
+The response lists per-item validation errors (`"errors": ["Metric 0: ..."]`) for anything rejected.
 
 ### Processor not processing metrics
 
@@ -556,10 +560,8 @@ curl -X POST http://localhost:4000/metrics \
 
 **Solution:**
 ```bash
-# Check Redis Stream
-docker exec -it hermes-redis redis-cli
-> XINFO STREAM hermes:metrics
-> XLEN hermes:metrics  # Should be low if processor is working
+# Check backlog per stream (lag = not yet read, pending = read but not acked)
+curl http://localhost:4010/healthz
 
 # Check processor logs
 docker logs hermes-processor
@@ -624,7 +626,8 @@ docker-compose logs
 - **[MVP.md](docs/MVP.md)** - MVP scope and decisions
 - **[BUILD_STATUS.md](BUILD_STATUS.md)** - Build status and fixes
 - **[LOAD_TESTING.md](docs/LOAD_TESTING.md)** - Throughput/latency test roadmap and how to reproduce the numbers before they go in this README
-- **API Reference** - Available at `/api/docs` when running (in development)
+- **[docs/adr/](docs/adr/)** - Architecture decision records (anomaly detection, multi-tenancy, Go backend)
+- **[packages/backend](packages/backend/README.md)** - Go services: layout, configuration, tests
 
 ## Contributing
 

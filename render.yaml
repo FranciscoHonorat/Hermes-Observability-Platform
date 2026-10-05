@@ -26,8 +26,9 @@ services:
   - type: web
     name: hermes-collector-app
     env: docker
-    dockerfilePath: docker/Dockerfile.collector
+    dockerfilePath: docker/Dockerfile.backend
     dockerContext: .
+    dockerCommand: /collector
     plan: free
     envVars:
       - key: REDIS_HOST
@@ -36,15 +37,16 @@ services:
         value: "6379"
       - key: COLLECTOR_PORT
         value: "4000"
-      - key: NODE_ENV
+      - key: HERMES_ENV
         value: production
 
   # 4. Processor
   - type: worker
     name: hermes-processor-app
     env: docker
-    dockerfilePath: docker/Dockerfile.processor
+    dockerfilePath: docker/Dockerfile.backend
     dockerContext: .
+    dockerCommand: /processor
     plan: free
     envVars:
       - key: POSTGRES_HOST
@@ -61,15 +63,16 @@ services:
         value: hermes-redis-app
       - key: REDIS_PORT
         value: "6379"
-      - key: NODE_ENV
-        value: production
+      - key: PROCESSOR_CONSUMER_NAME
+        value: processor-1
 
-  # 5. API
+  # 5. API (also serves signup/login and tenant admin)
   - type: web
     name: hermes-api-app
     env: docker
-    dockerfilePath: docker/Dockerfile.api
+    dockerfilePath: docker/Dockerfile.backend
     dockerContext: .
+    dockerCommand: /api
     plan: free
     envVars:
       - key: POSTGRES_HOST
@@ -88,8 +91,13 @@ services:
         value: "6379"
       - key: API_PORT
         value: "3000"
-      - key: NODE_ENV
+      - key: HERMES_ENV
         value: production
+      # Required in production: signs session cookies.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://hermes-ui-app.onrender.com
 
   # 6. UI
   - type: web

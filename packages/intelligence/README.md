@@ -5,8 +5,8 @@ in this repo — see `docs/adr/0001-anomaly-detection-and-performance-recommenda
 for why.
 
 Runs as a standalone periodic sweep (`src/main.py`), the same shape as
-`packages/processor/src/alertEngine.ts`: connect directly to Postgres (no
-call to `packages/api`), loop forever, sleep `ANOMALY_CHECK_INTERVAL_SECONDS`
+the processor's alert engine (`packages/backend/internal/processor/alert`): connect directly to Postgres (no
+call to the api service), loop forever, sleep `ANOMALY_CHECK_INTERVAL_SECONDS`
 (default 300) between sweeps.
 
 ## What it does

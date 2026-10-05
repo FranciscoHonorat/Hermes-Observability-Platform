@@ -89,7 +89,7 @@ const commands = {
     },
 
     shell: () => {
-        const service = process.argv[3] || 'api';
+        const service = process.argv[3] || 'postgres';
         log(`\nOpening shell in ${service}...`, 'blue');
         exec(`docker-compose exec ${service} sh`);
     },
@@ -106,12 +106,12 @@ const commands = {
         log('  status    - Show service status');
         log('  clean     - Stop and remove containers (keep data)');
         log('  destroy   - Stop, remove containers AND delete data');
-        log('  shell     - Open shell in service (default: api)');
+        log('  shell     - Open shell in service (default: postgres; Go services have no shell)');
         log('  help      - Show this help');
         log('\nExamples:', 'yellow');
         log('  node scripts/docker.js up');
         log('  node scripts/docker.js logs');
-        log('  node scripts/docker.js shell api');
+        log('  node scripts/docker.js shell redis');
         log('  node scripts/docker.js shell postgres\n');
     }
 };

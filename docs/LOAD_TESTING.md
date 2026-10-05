@@ -10,7 +10,7 @@ Adapted from Francisco's personal-project verification roadmap, specific to this
 
 - [ ] Stack is up: `npm run docker:up` (local) or a live deploy URL
 - [ ] `curl http://<host>:3000/health` and `curl http://<host>:4000/health` both return `200`
-- [ ] You know whether `COLLECTOR_API_KEYS` / `API_ADMIN_TOKEN` are set on this instance (changes which commands below need a header)
+- [ ] You have an admin session JWT (`$JWT`, from `POST /api/v1/auth/login`) for the API commands, and, in production, a collector API key (`$HERMES_API_KEY`)
 - [ ] `docker-compose logs -f` (or your platform's log tail) is open in another terminal
 - [ ] Apache Bench and Vegeta installed locally (`brew install apache2-utils vegeta` / `apt-get install apache2-utils` + `go install github.com/tsenart/vegeta@latest`)
 
@@ -97,7 +97,7 @@ for m in d['metrics']: m['timestamp']=int(time.time()*1000)
 json.dump(d, open('results/metric-batch.json','w'))
 "
 
-# If COLLECTOR_API_KEYS is set on this instance, add: -H "x-api-key: $HERMES_API_KEY"
+# Required in production (HERMES_ENV=production); optional in development
 ab -n 1000 -c 20 -p results/metric-batch.json -T "application/json" \
   ${HERMES_API_KEY:+-H "x-api-key: $HERMES_API_KEY"} \
   http://localhost:4000/api/v1/metrics > results/ab-ingest.txt 2>&1
@@ -114,7 +114,7 @@ Each `ab` request here is one **batch** of 2 metrics (`202 Accepted` with `{acce
 const Redis = require('ioredis');
 const redis = new Redis({ host: process.env.REDIS_HOST || 'localhost', port: 6379 });
 
-const STREAM = 'hermes:metrics:stream'; // REDIS_METRICS_STREAM, packages/shared/src/constants
+const STREAM = 'hermes:metrics:stream'; // streams.Metrics in packages/backend/internal/streams
 const N = 10000;
 
 async function main() {
@@ -146,10 +146,10 @@ This bypasses Collector auth/rate-limiting entirely (it writes straight to the s
 
 ### 2.3 Sustained ingestion (existing repo script)
 
-`generate-metrics.js` and `test-metrics.js` at the repo root already do this — they now forward `HERMES_API_KEY` automatically if set:
+`scripts/generate-metrics.js` does this. It forwards `HERMES_API_KEY` if set:
 
 ```bash
-HERMES_API_KEY=$YOUR_KEY node generate-metrics.js   # continuous batches every 5s, Ctrl+C to stop
+HERMES_API_KEY=$YOUR_KEY node scripts/generate-metrics.js   # continuous batches every 5s, Ctrl+C to stop
 ```
 
 Useful for a longer-duration soak test rather than a burst — run it for 10+ minutes while watching Phase 3's memory numbers.
@@ -164,7 +164,7 @@ Since every service runs in its own container, use `docker stats` instead of `ps
 # Terminal 1: baseline (idle)
 docker stats --no-stream hermes-collector hermes-processor hermes-api hermes-postgres hermes-redis
 
-# Terminal 2: generate load (e.g. Phase 2.1's ab command, or generate-metrics.js for a sustained run)
+# Terminal 2: generate load (e.g. Phase 2.1's ab command, or scripts/generate-metrics.js for a sustained run)
 
 # Terminal 1 again, during load:
 docker stats hermes-collector hermes-processor hermes-api --format \
@@ -188,12 +188,12 @@ ab -n 300 -c 10 \
   "http://localhost:3000/api/v1/metrics/timeseries?appName=load-test&metricName=http.requests.total&interval=1%20minute&from=$FROM&to=$TO" \
   > results/ab-timeseries.txt 2>&1
 
-# Alert list (public read)
-ab -n 500 -c 10 "http://localhost:3000/api/v1/alerts" > results/ab-alerts-read.txt 2>&1
+# Alert list (any session)
+ab -n 500 -c 10 -H "Authorization: Bearer $JWT" "http://localhost:3000/api/v1/alerts" > results/ab-alerts-read.txt 2>&1
 
-# Alert create (requires the admin token — skip if API_ADMIN_TOKEN is unset on this instance)
+# Alert create (admin session)
 ab -n 200 -c 5 -p results/alert-payload.json -T "application/json" \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $JWT" \
   http://localhost:3000/api/v1/alerts > results/ab-alerts-create.txt 2>&1
 ```
 
@@ -268,7 +268,7 @@ Reproduce: `docs/LOAD_TESTING.md`. Raw output in `results/` (gitignored — rege
 
 1. **Deploy check** — stack up, both `/health` endpoints green, decide whether this run tests default rate limits or a raised ceiling.
 2. **Phase 1** — API read throughput (`ab` + Vegeta), save to `results/`.
-3. **Phase 2 + 3** — ingestion throughput and resource usage together (run `generate-metrics.js` in the background while watching `docker stats`).
+3. **Phase 2 + 3** — ingestion throughput and resource usage together (run `scripts/generate-metrics.js` in the background while watching `docker stats`).
 4. **Phase 4** — the endpoints your README actually wants to brag about (probably ingestion + timeseries, not `/health`).
 5. **Phase 5 + 6** — compile the table, paste into README, re-run *one* number cold to confirm it wasn't a fluke before publishing.
 

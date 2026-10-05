@@ -2,15 +2,16 @@
 
 ## Services
 
-`docker-compose.yml` defines six services on a single bridge network (`hermes-network`):
+`docker-compose.yml` defines seven services on a single bridge network (`hermes-network`). `collector`, `processor` and `api` run the same Go image (`docker/Dockerfile.backend`, tagged `hermes-backend`); `command` picks the binary.
 
 | Service | Image / build | Port | Role |
 |---|---|---|---|
 | `postgres` | `timescale/timescaledb:latest-pg15` | 5432 | Metrics store (hypertable + continuous aggregates) |
 | `redis` | `redis:7-alpine` | 6379 | Stream buffer between Collector and Processor |
-| `collector` | `docker/Dockerfile.collector` | 4000 | Ingests metrics over HTTP, pushes to the Redis Stream |
-| `processor` | `docker/Dockerfile.processor` | — | Consumes the stream, persists to Postgres, runs the alert engine |
-| `api` | `docker/Dockerfile.api` | 3000 | REST API the UI and external tools read from |
+| `collector` | `hermes-backend` `/collector` | 4000 | Ingests metrics, traces and logs over HTTP and pushes them to Redis Streams |
+| `processor` | `hermes-backend` `/processor` | 4010 | Consumes the streams, persists to Postgres, runs the alert engine. `GET /healthz` shows backlog |
+| `api` | `hermes-backend` `/api` | 3000 | REST API for the UI and external tools, plus signup/login and tenant admin (users, API keys) |
+| `intelligence` | `packages/intelligence/Dockerfile` | — | Python anomaly detection and recommendations |
 | `ui` | `docker/Dockerfile.ui` (nginx) | 3001 → 80 | React dashboard, proxies `/api` to the `api` service |
 
 `postgres` and `redis` have healthchecks; `collector`, `processor`, and `api` wait on those before starting (`depends_on: condition: service_healthy`).
@@ -33,24 +34,11 @@ Two named volumes persist data across restarts: `postgres_data` (`/var/lib/postg
 
 ## Authentication
 
-Compose ships with the ingestion and admin API keys **empty**, so a freshly cloned repo runs unauthenticated on your local network — matching the project's original MVP posture. To exercise the authenticated path locally:
+Authentication follows [ADR 0002](docs/adr/0002-multi-tenancy-and-rbac.md):
 
-```yaml
-# docker-compose.yml
-collector:
-  environment:
-    COLLECTOR_API_KEYS: "dev-key-1"
-api:
-  environment:
-    API_ADMIN_TOKEN: "dev-admin-token"
-ui:
-  environment:
-    API_ADMIN_TOKEN: "dev-admin-token"   # forwarded server-side by nginx, never shipped to the browser
-```
-
-Once `COLLECTOR_API_KEYS` is set, every `@hermes/agent` instance must send a matching key (`HERMES_API_KEY` env var, or `apiKey` in `createAgent()`'s config) or the Collector returns `401`. Once `API_ADMIN_TOKEN` is set, `POST`/`PUT`/`DELETE` on `/api/v1/alerts` require `Authorization: Bearer <token>` — the dashboard gets this from nginx (see `docker/nginx.conf`), not from client-side JavaScript, so the token never reaches the browser bundle.
-
-Both API_ADMIN_TOKEN and COLLECTOR_API_KEYS are **required** (the services refuse to start without them) once `NODE_ENV=production` — see `render.yml`, where Render generates them automatically.
+- **Dashboard and API.** Sign up at http://localhost:3001. The first account becomes `admin` of a new tenant. The api issues a JWT in an httpOnly `hermes_session` cookie. Scripts can send the same JWT as `Authorization: Bearer <jwt>`.
+- **Ingestion.** An admin creates per-tenant API keys on the UI's Admin page (`POST /api/v1/admin/api-keys`). Agents send the key as `x-api-key` (`HERMES_API_KEY` for `@hermes/agent` and `agent-go`), and the collector stamps that tenant on everything it receives. In development (`HERMES_ENV` other than `production`), requests without a key are attributed to the seeded `default` tenant (id 1), so a fresh clone works with no setup.
+- **Production.** With `HERMES_ENV=production`, the collector rejects requests without a key, the session cookie is `Secure`, and the api refuses to start without `JWT_SECRET` and `CORS_ORIGIN`.
 
 ## Troubleshooting
 
@@ -59,17 +47,14 @@ Both API_ADMIN_TOKEN and COLLECTOR_API_KEYS are **required** (the services refus
 curl http://localhost:4000/health
 docker logs hermes-collector
 ```
-If `COLLECTOR_API_KEYS` is set, confirm the sending app's `HERMES_API_KEY` matches one of them — mismatches return `401`, not a connection error.
+A wrong or revoked `HERMES_API_KEY` returns `401`, not a connection error. Keys live in Postgres and are cached in the Redis hash `hermes:apikeys`. If Redis lost its data, restart the api, which rebuilds the cache on startup.
 
 **Processor isn't processing metrics**
 ```bash
-docker exec -it hermes-redis redis-cli
-> XINFO STREAM hermes:metrics
-> XLEN hermes:metrics        # should stay low if the processor is keeping up
-> XPENDING hermes:metrics processor-group   # entries here are stuck (see below)
+curl http://localhost:4010/healthz   # per-stream lag (unread) and pending (read, not acked)
 docker logs hermes-processor
 ```
-A non-zero, non-shrinking `XPENDING` count that isn't the malformed-metric dead-letter path (those are acked immediately and logged as `Metric discarded`) means the processor is failing to persist — check `docker logs hermes-processor` for a Postgres connection error first.
+Invalid messages are acknowledged and logged as `message dead-lettered`, so they never accumulate. A non-zero, non-shrinking `pending` count means the processor is failing to persist and retrying. Check `docker logs hermes-processor` for a Postgres connection error first.
 
 **Dashboard shows no data**
 ```bash
@@ -86,4 +71,10 @@ docker-compose logs
 ```
 
 **A service exits immediately with "Missing required environment variable"**
-That's the fail-fast check in `config.ts` for `POSTGRES_PASSWORD` (api, processor), `CORS_ORIGIN`/`API_ADMIN_TOKEN` (api, production only), or `COLLECTOR_API_KEYS` (collector, production only). Set the variable — there is deliberately no silent fallback to a default credential in code.
+That's the fail-fast config check: `POSTGRES_PASSWORD` (api, processor) always, and `JWT_SECRET`/`CORS_ORIGIN` (api) when `HERMES_ENV=production`. The error lists every missing or malformed variable at once. Set them. There is deliberately no fallback to a default credential in production.
+
+**The UI returns 502 for every `/api` call after recreating only the `api` container**
+nginx resolves `api` once at startup and keeps the old container's IP. Restart the UI too: `docker compose restart ui`.
+
+**The Go services have no shell**
+They run on a distroless image, so `docker compose exec api sh` won't work. Use `docker logs` and the `/health` (api, collector) and `/healthz` (processor) endpoints instead.

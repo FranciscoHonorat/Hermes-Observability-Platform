@@ -9,15 +9,13 @@
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "build:clean": "tsc --build --clean",
-    "start": "concurrently \"npm run start:agent\" \"npm run start:api\" \"npm run start:collector\" \"npm run start:processor\" \"npm run start:ui\"",
-    "start:agent": "npm run start --workspace=packages/agent",
-    "start:api": "npm run start --workspace=packages/api",
-    "start:collector": "npm run start --workspace=packages/collector",
-    "start:processor": "npm run start --workspace=packages/processor",
-    "start:ui": "npm run start --workspace=packages/ui",
-    "clean": "tsc --build --clean",
-    "test": "npm run test --workspaces --if-present",
-    "test:coverage": "npm run test --workspaces --if-present -- --coverage",
+    "start": "concurrently \"npm run start:collector\" \"npm run start:processor\" \"npm run start:api\" \"npm run start:ui\"",
+    "start:api": "go -C packages/backend run ./cmd/api",
+    "start:collector": "go -C packages/backend run ./cmd/collector",
+    "start:processor": "go -C packages/backend run ./cmd/processor",
+    "start:ui": "npm run dev --workspace=packages/ui",
+    "test": "go -C packages/backend test ./...",
+    "test:coverage": "go -C packages/backend test -cover ./...",
     "test:system": "node scripts/test-system.js",
     "load-test:redis": "node scripts/load-test-redis-ingest.js",
     "dev": "npm run dev --workspaces --if-present",
@@ -38,7 +36,6 @@
     "@typescript-eslint/parser": "^8.54.0",
     "concurrently": "^10.0.5",
     "eslint": "^9.39.2",
-    "nodemon": "^3.1.11",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
@@ -46,8 +43,5 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
-  },
-  "dependencies": {
-    "dotenv": "^17.3.1"
   }
 }

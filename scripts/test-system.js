@@ -53,7 +53,7 @@ function checkService(name, host, port, path = '/health') {
 async function checkBuild() {
     log('\nChecking build artifacts...', 'blue');
     
-    const packages = ['shared', 'agent', 'collector', 'processor', 'api', 'ui'];
+    const packages = ['shared', 'agent', 'ui'];
     let allBuilt = true;
 
     for (const pkg of packages) {
