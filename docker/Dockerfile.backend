@@ -1,0 +1,18 @@
+# One image for the three Go services; pick one with the container command:
+#   /collector, /processor or /api
+# Build context: repository root (docker-compose.yml, render.yaml)
+FROM golang:1.26-alpine AS build
+
+WORKDIR /src
+
+COPY packages/backend/go.mod packages/backend/go.sum ./
+RUN go mod download
+
+COPY packages/backend ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/...
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=build /out/ /
+
+EXPOSE 3000 4000 4010

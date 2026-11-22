@@ -38,14 +38,10 @@ Make sure the **Hermes Observability Platform** is running:
 npm run docker:up
 
 # Or manually:
-# Terminal 1: Collector
-cd packages/collector && npm run dev
-
-# Terminal 2: Processor  
-cd packages/processor && npm run dev
-
-# Terminal 3: API
-cd packages/api && npm run dev
+# Terminals 1-3: Go services (collector, processor, api)
+cd packages/backend && go run ./cmd/collector
+cd packages/backend && go run ./cmd/processor
+cd packages/backend && go run ./cmd/api
 
 # Terminal 4: UI
 cd packages/ui && npm run dev

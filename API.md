@@ -36,18 +36,21 @@ Complete REST API reference for the Hermes Observability Platform.
 
 ## Authentication
 
-- **Read endpoints** (`GET /api/v1/metrics*`, `GET /api/v1/applications*`, `GET /api/v1/alerts*`) are public.
-- **`POST` / `PUT` / `DELETE /api/v1/alerts`** require `Authorization: Bearer <token>`, matching the API's `API_ADMIN_TOKEN`. In local Docker Compose this is left empty and the check is skipped; it is required once `NODE_ENV=production`.
-- **Metric ingestion** (`POST` on the Collector, not this API — see [DOCKER.md](DOCKER.md#authentication)) requires an `x-api-key` header matching one of `COLLECTOR_API_KEYS`.
+- **Every `/api/v1/*` route requires a session**, except `/api/v1/auth/signup`, `/api/v1/auth/login` and `/api/v1/auth/logout`. Log in to get a JWT. The browser receives it as the httpOnly `hermes_session` cookie; scripts can send it as `Authorization: Bearer <jwt>`.
+- **Roles:** `viewer` can read everything in its tenant. `admin` can also create, update and delete alert rules, update recommendation status, and use `/api/v1/admin/*` (users and collector API keys).
+- **Tenant isolation:** every query is scoped to the session's tenant. Another tenant's ids return `404`.
+- **Ingestion** (`POST` on the collector, not this API; see [DOCKER.md](DOCKER.md#authentication)) authenticates with an `x-api-key` created at `/api/v1/admin/api-keys`.
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/alerts \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+# Log in and keep the cookie (or copy the JWT from Set-Cookie for Bearer use)
+curl -c jar.txt -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"tenantSlug": "my-team", "email": "me@example.com", "password": "..."}'
+
+curl -b jar.txt -X POST http://localhost:3000/api/v1/alerts \
   -H "Content-Type: application/json" \
   -d '{ "...": "..." }'
 ```
-
-> Full user accounts / RBAC are still out of MVP scope (see `docs/MVP.md`); this is a single shared operator token, not per-user auth.
 
 ---
 
@@ -384,7 +387,7 @@ Create a new alert.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High CPU Usage",
@@ -440,7 +443,7 @@ Same fields as [Create Alert](#create-alert), but all optional. Only the fields 
 
 ```bash
 curl -X PUT http://localhost:3000/api/v1/alerts/1 \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "threshold": 90,
@@ -484,7 +487,7 @@ Delete an alert.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/v1/alerts/1 \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN"
+  -H "Authorization: Bearer $JWT"
 ```
 
 **Example Response:**
@@ -887,7 +890,7 @@ Acknowledge or dismiss a recommendation. Requires the admin bearer token, same a
 
 ```bash
 curl -X PUT "http://localhost:3000/api/v1/recommendations/1" \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{"status": "acknowledged"}'
 ```
@@ -973,7 +976,7 @@ curl http://localhost:3000/health
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/alerts \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High Error Rate",

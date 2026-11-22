@@ -39,23 +39,31 @@ services:
     networks:
       - hermes-network
 
-  # Hermes Collector (receives metrics)
+  # The three Go services (packages/backend) share one image; `command`
+  # picks the binary. Built once, tagged hermes-backend.
+
+  # Collector: receives telemetry from agents, queues it on Redis Streams.
   collector:
-    build:
+    build: &backend-build
       context: .
-      dockerfile: docker/Dockerfile.collector
+      dockerfile: docker/Dockerfile.backend
+    image: hermes-backend
+    command: ["/collector"]
     container_name: hermes-collector
     ports:
       - "4000:4000"
     environment:
+      HERMES_ENV: development
       REDIS_HOST: redis
       REDIS_PORT: 6379
       COLLECTOR_PORT: 4000
-      NODE_ENV: development
+      # Agents reach the collector directly (no proxy), so ignore
+      # X-Forwarded-For when rate limiting. Use 1 behind a load balancer.
+      TRUSTED_PROXY_HOPS: 0
       # No key configured -> unauthenticated dev requests are attributed to
       # the fixed "default" tenant (id=1, seeded by docker/init-db.sql).
-      # Generate a real per-tenant key via the Admin UI (packages/admin) to
-      # test the auth path locally. See docs/adr/0002-*.md.
+      # Create a real per-tenant key in the UI's Admin page to test the auth
+      # path locally. See docs/adr/0002-*.md.
       # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
@@ -66,11 +74,12 @@ services:
       - hermes-network
     restart: unless-stopped
 
-  # Hermes Processor (processes metrics)
+  # Processor: drains the streams into TimescaleDB and runs the alert
+  # engine. GET :4010/healthz reports per-stream backlog (lag/pending).
   processor:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.processor
+    build: *backend-build
+    image: hermes-backend
+    command: ["/processor"]
     container_name: hermes-processor
     environment:
       POSTGRES_HOST: postgres
@@ -80,64 +89,11 @@ services:
       POSTGRES_PASSWORD: hermes_dev_password
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      NODE_ENV: development
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - hermes-network
-    restart: unless-stopped
-
-  # Hermes Users (self-service signup/login/logout/me)
-  users:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.users
-    container_name: hermes-users
+      # Stable name so a restarted container resumes its own pending entries
+      # immediately. Give each replica a distinct name if you scale this out.
+      PROCESSOR_CONSUMER_NAME: processor-1
     ports:
-      - "4001:4001"
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: hermes_observability
-      POSTGRES_USER: hermes
-      POSTGRES_PASSWORD: hermes_dev_password
-      USERS_PORT: 4001
-      NODE_ENV: development
-      CORS_ORIGIN: "http://localhost:3001"
-      # Dev-only secret signing every session JWT. Never reuse this value
-      # outside this file — every service that verifies a token (api, admin,
-      # users) must share the exact same secret. See docs/adr/0002-*.md.
-      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - hermes-network
-    restart: unless-stopped
-
-  # Hermes Admin (tenant-admin-only: manage users, manage Collector API keys)
-  admin:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.admin
-    container_name: hermes-admin
-    ports:
-      - "4002:4002"
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: hermes_observability
-      POSTGRES_USER: hermes
-      POSTGRES_PASSWORD: hermes_dev_password
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ADMIN_PORT: 4002
-      NODE_ENV: development
-      CORS_ORIGIN: "http://localhost:3001"
-      JWT_SECRET: hermes_dev_jwt_secret_change_in_production
+      - "4010:4010"
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,15 +123,18 @@ services:
       - hermes-network
     restart: unless-stopped
 
-  # Hermes API (serves data)
+  # API: dashboard queries, sessions (signup/login) and tenant admin
+  # (users, collector API keys). Replaces the former api, users and admin
+  # services; see docs/adr/0003-*.md.
   api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.api
+    build: *backend-build
+    image: hermes-backend
+    command: ["/api"]
     container_name: hermes-api
     ports:
       - "3000:3000"
     environment:
+      HERMES_ENV: development
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: hermes_observability
@@ -184,10 +143,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       API_PORT: 3000
-      NODE_ENV: development
       CORS_ORIGIN: "http://localhost:3001"
-      # Same secret as users/admin — verifies the session cookie they issue.
-      # See docs/adr/0002-*.md.
+      # Dev-only secret signing session JWTs. Never reuse this value outside
+      # this file. See docs/adr/0002-*.md.
       JWT_SECRET: hermes_dev_jwt_secret_change_in_production
       # Overridable for load testing: RATE_LIMIT_MAX=100000 docker-compose up -d
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
@@ -213,8 +171,6 @@ services:
       VITE_API_URL: http://localhost:3000
     depends_on:
       - api
-      - users
-      - admin
     networks:
       - hermes-network
     restart: unless-stopped

@@ -12,13 +12,13 @@ npm install
 npm run docker:up
 ```
 
-This starts Postgres+TimescaleDB, Redis, the Collector, the Processor, the API, and the UI. Local dev leaves `COLLECTOR_API_KEYS` and `API_ADMIN_TOKEN` empty in `docker-compose.yml`, so every service runs unauthenticated — that's intentional for a local network, not for anything reachable outside it (see [DOCKER.md](DOCKER.md#authentication) to turn auth on).
+This starts Postgres+TimescaleDB, Redis, the Collector, the Processor, the API, and the UI. In local development, agents can send data without an API key; it lands in the seeded `default` tenant. The dashboard requires an account: sign up at http://localhost:3001. See [DOCKER.md](DOCKER.md#authentication) for API keys and production settings.
 
 Open the dashboard at http://localhost:3001. Nothing will show up until an instrumented app sends metrics — see below.
 
 ## Manual
 
-Prerequisites: Node.js 18+, PostgreSQL 15+ with the TimescaleDB extension, Redis 7+, npm 9+.
+Prerequisites: Go 1.26+, Node.js 18+ (UI and agent), PostgreSQL 15+ with the TimescaleDB extension, Redis 7+, npm 9+.
 
 ```bash
 npm install
@@ -29,9 +29,9 @@ npm run build
 psql "$DATABASE_URL" -f docker/init-db.sql
 
 # one terminal per service
-npm run dev --workspace=packages/collector
-npm run dev --workspace=packages/processor
-npm run dev --workspace=packages/api
+go -C packages/backend run ./cmd/collector
+go -C packages/backend run ./cmd/processor
+go -C packages/backend run ./cmd/api
 npm run dev --workspace=packages/ui
 ```
 
@@ -45,7 +45,7 @@ npm install @hermes/agent
 const { createAgent, increment } = require('@hermes/agent');
 
 // Reads HERMES_COLLECTOR_URL / HERMES_SERVICE_NAME / HERMES_API_KEY from env;
-// HERMES_API_KEY is only needed once COLLECTOR_API_KEYS is set.
+// HERMES_API_KEY (created on the UI's Admin page) is required in production.
 createAgent().start();
 
 increment('http_requests_total', 1, { method: 'GET' });

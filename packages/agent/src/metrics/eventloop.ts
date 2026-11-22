@@ -1,7 +1,5 @@
 import { Metric, MetricType, MetricUnit } from '@hermes/shared';
 
-let lastCheck = 0;
-
 export const collectEventLoopMetrics = (): Promise<Metric[]> => {
     return new Promise(resolve => {
         const start = Date.now();

@@ -1,3 +1,4 @@
+import { hostname } from 'os';
 import { AgentConfig } from '@hermes/shared';
 
 export const loadConfig = (): AgentConfig => {
@@ -6,7 +7,7 @@ export const loadConfig = (): AgentConfig => {
         collectInterval: parseInt(process.env.HERMES_COLLECT_INTERVAL || '10000', 10),
         serviceName: process.env.HERMES_SERVICE_NAME || 'unknown-service',
         environment: process.env.HERMES_ENVIRONMENT || 'development',
-        host: process.env.HOSTNAME || require('os').hostname(),
+        host: process.env.HOSTNAME || hostname(),
         labels: {},
         apiKey: process.env.HERMES_API_KEY
     };
